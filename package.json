@@ -1,0 +1,71 @@
+{
+  "name": "glean",
+  "version": "0.1.0",
+  "private": true,
+  "description": "拾知 · 让每一次学习，留下生长的痕迹",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:ui": "vite --host 127.0.0.1",
+    "desktop": "npm run build && electron .",
+    "build": "tsc -b && vite build",
+    "test": ".venv/bin/python -m pytest backend/tests -q",
+    "build:backend": "PYINSTALLER_CONFIG_DIR=/private/tmp/glean-pyinstaller .venv/bin/python -m PyInstaller --noconfirm backend/glean.spec",
+    "package": "npm run build && npm run build:backend && node node_modules/electron/install.js && electron-builder --dir"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^44.4.1",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.9.2",
+    "vite": "^6.3.6"
+  },
+  "build": {
+    "appId": "com.glean.notes",
+    "productName": "拾知 Glean",
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist/glean-backend",
+        "to": "backend"
+      },
+      {
+        "from": "dist",
+        "to": "ui",
+        "filter": [
+          "index.html",
+          "assets/**/*"
+        ]
+      }
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": "dir",
+      "identity": "-",
+      "icon": "desktop/icon.icns"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "electronDist": "node_modules/electron/dist"
+  },
+  "author": "Glean"
+}
