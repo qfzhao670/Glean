@@ -97,12 +97,19 @@ class EditInput(BaseModel):
 
 @app.get('/api/health')
 def health():
-    return {'ok': True, 'version': '0.1.0'}
+    return {'ok': True, 'version': '0.1.1'}
 
 
 @app.get('/api/settings')
 def read_settings():
     return store.settings()
+
+
+@app.post('/api/settings/secrets/{name}/reveal')
+def reveal_secret(name: Literal['api_key', 'transcription_key']):
+    # Ordinary settings responses remain redacted. Reveal only after an explicit
+    # action from the authenticated local UI, and never cache this response.
+    return JSONResponse({'value': store.settings(True)[name]}, headers={'Cache-Control': 'no-store'})
 
 
 @app.put('/api/settings')

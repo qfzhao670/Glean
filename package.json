@@ -1,6 +1,6 @@
 {
   "name": "glean",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "拾知 · 让每一次学习，留下生长的痕迹",
   "main": "desktop/main.cjs",
@@ -9,7 +9,7 @@
     "dev:ui": "vite --host 127.0.0.1",
     "desktop": "npm run build && electron .",
     "build": "tsc -b && vite build",
-    "test": ".venv/bin/python -m pytest backend/tests -q",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs && .venv/bin/python -m pytest backend/tests -q",
     "build:backend": "PYINSTALLER_CONFIG_DIR=/private/tmp/glean-pyinstaller .venv/bin/python -m PyInstaller --noconfirm backend/glean.spec",
     "package": "npm run build && npm run build:backend && node node_modules/electron/install.js && electron-builder --dir"
   },

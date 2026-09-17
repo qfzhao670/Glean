@@ -6,12 +6,15 @@ import os
 import shutil
 import re
 import subprocess
+import time
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 import imageio_ffmpeg
 import yt_dlp
+from yt_dlp.networking import Request
+from yt_dlp.networking.exceptions import HTTPError, TransportError
 from . import store
 
 
@@ -59,6 +62,51 @@ class QuietLogger:
     def error(self, *_): pass
 
 
+def subtitle_candidates(info, requested):
+    formats = ('json3', 'vtt', 'srt', 'json')
+
+    def language_rank(lang):
+        return next((i for i, wanted in enumerate(requested) if lang == wanted or lang.startswith(wanted + '-')), len(requested))
+
+    for automatic, tracks in ((False, info.get('subtitles') or {}), (True, info.get('automatic_captions') or {})):
+        candidates = [(lang, track) for lang, values in tracks.items() if lang != 'live_chat' for track in values
+                      if track.get('ext') in formats and (track.get('url') or track.get('data'))]
+        if automatic:
+            # YouTube's translated auto-captions (tlang=...) can return 429 even
+            # when original captions work. Let the model translate the original.
+            native = [(lang, track) for lang, track in candidates if 'tlang' not in parse_qs(urlparse(track.get('url', '')).query)]
+            if native:
+                candidates = native
+        candidates.sort(key=lambda item: (0 if automatic and item[0].endswith('-orig') else 1,
+                                          language_rank(item[0]), item[0], formats.index(item[1]['ext'])))
+        yield from (track for _, track in candidates)
+
+
+def read_subtitle(ydl, track, headers):
+    limit = 20 * 1024 * 1024
+    if track.get('data') is not None:
+        raw = track['data']
+        raw = raw.encode('utf-8') if isinstance(raw, str) else raw
+    else:
+        for attempt in range(2):
+            try:
+                request = Request(track['url'], headers={**headers, **(track.get('http_headers') or {})})
+                with ydl.urlopen(request) as response:
+                    raw = response.read(limit + 1)
+                break
+            except HTTPError as exc:
+                if exc.status < 500 or attempt:
+                    raise
+                time.sleep(1)
+            except TransportError:
+                if attempt:
+                    raise
+                time.sleep(1)
+    if len(raw) > limit:
+        raise ValueError('字幕文件超过 20 MB，请使用较短的视频。')
+    return raw
+
+
 def fetch_subtitles(url, folder, config):
     validate_video_url(url)
     # yt-dlp is used only for published subtitles; the video is never downloaded.
@@ -72,33 +120,32 @@ def fetch_subtitles(url, folder, config):
         if not info or info.get('_type') in ('playlist', 'multi_video'):
             raise ValueError('请提供单个视频的链接。')
         requested = [s.strip() for s in config['subtitle_languages'].split(',') if s.strip()]
-        selected = None
-        for tracks in (info.get('subtitles') or {}, info.get('automatic_captions') or {}):
-            langs = [lang for wanted in requested for lang in tracks if lang == wanted or lang.startswith(wanted + '-')]
-            langs += [lang for lang in tracks if lang != 'live_chat']
-            for lang in dict.fromkeys(langs):
-                usable = [s for s in tracks[lang] if s.get('ext') in ('vtt', 'srt', 'json3', 'json') and s.get('url')]
-                if usable:
-                    selected = sorted(usable, key=lambda s: ['vtt', 'srt', 'json3', 'json'].index(s['ext']))[0]
-                    break
-            if selected:
-                break
-        if not selected:
+        candidates = list(subtitle_candidates(info, requested))
+        if not candidates:
             raise ValueError('这个视频没有可获取的字幕，已停止。你可以改用本地 MP4，通过声音生成字幕。')
-        try:
-            with ydl.urlopen(selected['url']) as response:
-                raw = response.read(20 * 1024 * 1024 + 1)
-            if len(raw) > 20 * 1024 * 1024:
-                raise ValueError('字幕文件超过 20 MB，请使用较短的视频。')
+        failure = '字幕内容为空或格式无效，已停止生成。'
+        cause = None
+        for selected in candidates[:6]:
+            try:
+                raw = read_subtitle(ydl, selected, info.get('http_headers') or {})
+                text = subtitle_text(raw.decode('utf-8-sig'), selected['ext'])
+                if not text.strip():
+                    continue
+            except HTTPError as exc:
+                if exc.status == 429:
+                    raise ValueError('平台暂时限制字幕请求（HTTP 429）。请稍后点击重试；无需重新创建任务。') from exc
+                failure = ('字幕访问被拒绝（HTTP 403），该字幕可能需要登录权限。' if exc.status == 403
+                           else f'字幕获取失败（HTTP {exc.status}），请稍后重试。')
+                cause = exc
+                continue
+            except (TransportError, OSError) as exc:
+                raise ValueError('字幕下载连接中断或超时，请检查网络后重试。') from exc
+            except (UnicodeError, json.JSONDecodeError, KeyError, TypeError, AttributeError) as exc:
+                cause = exc
+                continue
             (folder / ('original.' + selected['ext'])).write_bytes(raw)
-            text = subtitle_text(raw.decode('utf-8-sig'), selected['ext'])
-        except ValueError:
-            raise
-        except Exception as exc:
-            raise ValueError('字幕获取失败，请稍后重试。') from exc
-    if not text.strip():
-        raise ValueError('字幕内容为空，已停止生成。')
-    return text, info.get('title', '视频笔记'), info.get('duration') or 0
+            return text, info.get('title', '视频笔记'), info.get('duration') or 0
+        raise ValueError(failure) from cause
 
 
 def transcribe(path, folder, config, job_id):
