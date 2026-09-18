@@ -3,7 +3,7 @@ export interface Message { id: string; role: string; content: string; patch: str
 export interface Revision { id: string; reason: string; created_at: string }
 export interface Job { id: string; status: string; title: string; kind: string; stage: string; progress: number; error: string; note_id: string }
 export interface Stats { generated: number; curated: number; notes: number; links: number; minutes: number; patches: number; streak: number; active_days: number; activity: { date: string; count: number }[]; graph: { id: string; title: string; links: string[] }[] }
-export interface Settings { base_url: string; model: string; api_key: string | null; has_api_key?: boolean; transcription_base_url: string; transcription_model: string; transcription_key: string | null; has_transcription_key?: boolean; vault_path: string; notes_folder: string; chunk_chars: number; auto_patch: boolean; subtitle_languages: string }
+export interface Settings { base_url: string; model: string; api_key: string | null; has_api_key?: boolean; transcription_base_url: string; transcription_model: string; transcription_key: string | null; has_transcription_key?: boolean; vault_path: string; notes_folder: string; chunk_chars: number; auto_patch: boolean }
 declare global { interface Window { glean?: { config: () => Promise<{ token: string; baseUrl: string }>; chooseVault: () => Promise<string | null>; openObsidian: (path: string) => Promise<void> } } }
 let token = import.meta.env.VITE_GLEAN_TOKEN || '';
 let baseUrl = '';
@@ -14,4 +14,4 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   return response.json();
 }
 export const post = <T,>(path: string, body?: unknown) => api<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
-export function download(name: string, content: string) { const url = URL.createObjectURL(new Blob([content], { type: 'text/markdown;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = name.replace(/[<>:"/\\|?*]/g, '-') + '.md'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
+export function download(name: string, content: string, extension = 'md') { const type = extension === 'txt' ? 'text/plain;charset=utf-8' : 'text/markdown;charset=utf-8'; const url = URL.createObjectURL(new Blob([content], { type })); const link = document.createElement('a'); link.href = url; link.download = name.replace(/[<>:"/\\|?*]/g, '-') + '.' + extension; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }

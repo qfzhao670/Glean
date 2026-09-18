@@ -16,7 +16,7 @@ async function start() {
   config = { token, baseUrl: `http://127.0.0.1:${port}` };
   const executable = app.isPackaged ? path.join(process.resourcesPath, 'backend', process.platform === 'win32' ? 'glean-backend.exe' : 'glean-backend') : path.join(root, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
   const args = app.isPackaged ? [] : [path.join(root, 'backend', 'entry.py')];
-  backend = spawn(executable, args, { cwd: app.isPackaged ? app.getPath('userData') : root, env: { ...process.env, GLEAN_JS_RUNTIME: process.execPath, ELECTRON_RUN_AS_NODE: '1', GLEAN_TOKEN: token, GLEAN_PORT: String(port), GLEAN_DATA_DIR: dataDir, GLEAN_UI_DIR: app.isPackaged ? path.join(process.resourcesPath, 'ui') : path.join(root, 'dist') }, stdio: 'ignore' });
+  backend = spawn(executable, args, { cwd: app.isPackaged ? app.getPath('userData') : root, env: { ...process.env, GLEAN_TOKEN: token, GLEAN_PORT: String(port), GLEAN_DATA_DIR: dataDir, GLEAN_UI_DIR: app.isPackaged ? path.join(process.resourcesPath, 'ui') : path.join(root, 'dist') }, stdio: 'ignore' });
   backend.on('error', () => { dialog.showErrorBox('拾知无法启动', '请先安装后端依赖，详见项目 README。'); app.quit(); });
   let ready = false;
   for (let i = 0; i < 100; i++) {

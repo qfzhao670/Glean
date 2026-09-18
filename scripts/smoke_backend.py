@@ -9,11 +9,6 @@ from pathlib import Path
 import httpx
 
 root = Path(__file__).resolve().parents[1]
-electron = root / 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'
-if electron.exists():
-    runtime = subprocess.check_output([str(electron), '--permission', '-e', 'console.log(process.versions.node)'], env={**os.environ, 'ELECTRON_RUN_AS_NODE': '1'}, text=True).strip()
-    assert int(runtime.split('.')[0]) >= 22
-    print('Bundled Node runtime supports the YouTube challenge runner.')
 with socket.socket() as sock:
     sock.bind(('127.0.0.1', 0))
     port = sock.getsockname()[1]

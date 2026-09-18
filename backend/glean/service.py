@@ -55,7 +55,7 @@ def run_job(job_id):
         if not config['model'].strip():
             raise ValueError('请先在设置中填写文本模型名称，然后重试。')
         store.update_job(job_id, status='running', stage='准备素材', progress=3, error='')
-        title, source, duration, original = job['title'], payload.get('url') or job['title'], 0, ''
+        title, source, duration, original = job['title'], payload.get('source') or job['title'], 0, ''
         transcript_cache = folder / 'transcript.json'
         if job['kind'] == 'curate':
             text = payload['content']
@@ -64,11 +64,13 @@ def run_job(job_id):
             cached = json.loads(transcript_cache.read_text())
             text, title, duration = cached['text'], cached['title'], cached['duration']
         else:
-            if job['kind'] == 'url':
-                store.update_job(job_id, stage='查找视频已有字幕', progress=10)
-                text, title, duration = media.fetch_subtitles(payload['url'], folder, config)
-            else:
+            if job['kind'] == 'txt':
+                store.update_job(job_id, stage='读取字幕文件', progress=10)
+                text = media.read_transcript(Path(payload['path']))
+            elif job['kind'] == 'mp4':
                 text, duration = media.transcribe(Path(payload['path']), folder, config, job_id)
+            else:
+                raise ValueError('视频链接导入已停用，请上传 .txt 字幕文件重新创建任务。')
             transcript_cache.write_text(json.dumps({'text': text, 'title': title, 'duration': duration}, ensure_ascii=False))
         content = ai.generate(text, title, source, job['kind'], job_id, config)
         # Guard against dropped embedded assets on a curate operation.
@@ -91,7 +93,7 @@ def run_job(job_id):
         # Keep subtitles/checkpoints, remove large temporary audio/video after success.
         for audio in folder.glob('audio-*.wav'):
             audio.unlink(missing_ok=True)
-        if job['kind'] == 'mp4':
+        if job['kind'] in ('txt', 'mp4'):
             Path(payload['path']).unlink(missing_ok=True)
     except Exception as exc:
         message = str(exc) if isinstance(exc, ValueError) else '处理未完成，请检查模型服务和素材后重试。'

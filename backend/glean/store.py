@@ -17,7 +17,7 @@ DEFAULTS = {
     'base_url': 'https://api.openai.com/v1', 'model': '', 'api_key': '',
     'transcription_base_url': '', 'transcription_model': 'whisper-1', 'transcription_key': '',
     'vault_path': '', 'notes_folder': 'Glean', 'chunk_chars': 12000,
-    'auto_patch': True, 'subtitle_languages': 'zh-Hans,zh-Hant,zh,en',
+    'auto_patch': True,
 }
 
 
@@ -67,7 +67,8 @@ def init():
 
 def settings(private=False):
     path = DATA / 'settings.json'
-    value = {**DEFAULTS, **(json.loads(path.read_text()) if path.exists() else {})}
+    saved = json.loads(path.read_text()) if path.exists() else {}
+    value = {key: saved.get(key, default) for key, default in DEFAULTS.items()}
     if not private:
         for key in ('api_key', 'transcription_key'):
             value['has_' + key] = bool(value[key])

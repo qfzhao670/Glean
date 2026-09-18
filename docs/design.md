@@ -1,6 +1,6 @@
 # 拾知：知识标本室
 
-对象：在 Obsidian 中积累知识的个人学习者。主要任务：把视频、笔记与追问沉淀为能持续复习的本地 Markdown。
+对象：在 Obsidian 中积累知识的个人学习者。主要任务：把用户提供的字幕文件、视频、笔记与追问沉淀为能持续复习的本地 Markdown。
 
 设计参考：Anthropic frontend-design（https://skills.sh/anthropics/skills/frontend-design）。
 

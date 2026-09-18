@@ -1,7 +1,7 @@
 from PyInstaller.utils.hooks import collect_all
 from pathlib import Path
 all_data, all_bins, all_hidden = [], [], []
-for package in ['yt_dlp', 'yt_dlp_ejs', 'imageio_ffmpeg', 'uvicorn']:
+for package in ['imageio_ffmpeg', 'uvicorn']:
     data, binaries, hidden = collect_all(package)
     all_data += data
     all_bins += binaries

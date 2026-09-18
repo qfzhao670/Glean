@@ -57,8 +57,6 @@ class Settings(BaseModel):
     notes_folder: str = Field(default='Glean', max_length=200)
     chunk_chars: int = Field(default=12000, ge=2000, le=24000)
     auto_patch: bool = True
-    subtitle_languages: str = Field(default='zh-Hans,zh-Hant,zh,en', max_length=200)
-
     @field_validator('base_url', 'transcription_base_url')
     @classmethod
     def url(cls, value):
@@ -79,9 +77,8 @@ class Settings(BaseModel):
 
 
 class JobInput(BaseModel):
-    kind: Literal['url', 'curate']
+    kind: Literal['curate']
     title: str = Field(default='新笔记', max_length=160)
-    url: str = Field(default='', max_length=2000)
     content: str = Field(default='', max_length=2_000_000)
     note_id: str = ''
 
@@ -220,9 +217,7 @@ def jobs():
 @app.post('/api/jobs')
 def create_job(value: JobInput):
     payload = value.model_dump()
-    if value.kind == 'url':
-        media.validate_video_url(value.url)
-    elif value.note_id:
+    if value.note_id:
         current = get_note(value.note_id)
         payload['content'] = current['content']
         value.title = current['title']
@@ -233,20 +228,25 @@ def create_job(value: JobInput):
 
 @app.post('/api/jobs/upload')
 async def upload(file: UploadFile = File(...)):
-    if not file.filename or Path(file.filename).suffix.lower() != '.mp4':
-        raise ValueError('请选择 MP4 视频文件。')
+    filename = re.split(r'[/\\]', file.filename or '')[-1]
+    suffix = Path(filename).suffix.lower()
+    if suffix not in ('.txt', '.mp4'):
+        raise ValueError('请选择 .txt 字幕文件或 MP4 视频文件。')
+    kind = 'txt' if suffix == '.txt' else 'mp4'
+    limit = 20 * 1024 ** 2 if kind == 'txt' else 4 * 1024 ** 3
     folder = store.DATA / 'uploads'
     folder.mkdir(exist_ok=True)
-    target = folder / (store.uid() + '.mp4')
+    target = folder / (store.uid() + suffix)
     total = 0
     try:
         with target.open('wb') as output:
             while data := await file.read(1024 * 1024):
                 total += len(data)
-                if total > 4 * 1024 ** 3:
-                    raise ValueError('视频超过 4 GB，请先压缩或分段。')
+                if total > limit:
+                    raise ValueError('字幕文件超过 20 MB，请拆分后重试。' if kind == 'txt' else '视频超过 4 GB，请先压缩或分段。')
                 output.write(data)
-        return {'id': service.new_job('mp4', Path(file.filename).stem, {'path': str(target)})}
+        title = Path(filename).stem.strip() or ('字幕笔记' if kind == 'txt' else '视频笔记')
+        return {'id': service.new_job(kind, title, {'path': str(target), 'source': filename})}
     except Exception:
         target.unlink(missing_ok=True)
         raise

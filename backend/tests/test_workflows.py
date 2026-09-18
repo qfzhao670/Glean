@@ -22,7 +22,7 @@ def test_chunking_is_lossless_with_chinese_and_long_lines():
 
 def test_patch_unique_anchor_and_restore(client):
     original = '# 缓存\n\n- CPU 使用缓存。\n\n后文。\n'
-    note_id = store.create_note('缓存', original, '原始字幕：缓存可以减少等待时间。', '课程', 'url')
+    note_id = store.create_note('缓存', original, '原始字幕：缓存可以减少等待时间。', '课程.txt', 'txt')
     with patch.object(ai, 'chat', return_value={'answer': '缓存保存经常访问的数据。', 'patch': {'anchor': '- CPU 使用缓存。', 'title': '缓存的作用', 'body': '缓存把经常使用的数据放到更近的位置。'}}):
         response = client.post(f'/api/notes/{note_id}/chat', json={'message': '缓存是做什么的？'})
     assert response.status_code == 200
@@ -79,25 +79,57 @@ def test_vault_export_is_contained_and_never_overwrites(tmp_path):
         service.vault_target('linked/escape.md')
 
 
-def test_url_allowlist_and_subtitle_parsing():
-    for url in ['http://youtube.com/watch?v=x', 'https://youtube.com.attacker.test/a', 'file:///etc/passwd', 'https://localhost/video', 'https://user:secret@youtube.com/watch?v=x']:
-        with pytest.raises(ValueError):
-            media.validate_video_url(url)
-    assert media.validate_video_url('https://www.bilibili.com/video/BV123')
-    raw = 'WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n你好 &amp; <c>世界</c>\n\n00:00:02.000 --> 00:00:03.000\n你好 &amp; <c>世界</c>\n\n00:00:03.000 --> 00:00:04.000\n新的知识\n'
-    assert media.subtitle_text(raw, 'vtt') == '你好 & 世界\n新的知识'
-    assert media.subtitle_text('{"events":[{"segs":[{"utf8":"hello"}]}]}', 'json3') == 'hello'
-    assert media.subtitle_text('{"body":[{"content":"哔哩哔哩字幕"}]}', 'json') == '哔哩哔哩字幕'
+def test_txt_transcript_decoding_and_validation(tmp_path):
+    utf8 = tmp_path / 'utf8.txt'
+    utf8.write_bytes(b'\xef\xbb\xbf00:00\n\xe4\xbd\xa0\xe5\xa5\xbd\n')
+    assert media.read_transcript(utf8) == '00:00\n你好\n'
+    chinese = tmp_path / 'gb18030.txt'
+    chinese.write_bytes('中文字幕'.encode('gb18030'))
+    assert media.read_transcript(chinese) == '中文字幕'
+    binary = tmp_path / 'binary.txt'
+    binary.write_bytes(b'not\x00text')
+    with pytest.raises(ValueError, match='纯文本'):
+        media.read_transcript(binary)
+    empty = tmp_path / 'empty.txt'
+    empty.write_text('   ')
+    with pytest.raises(ValueError, match='为空'):
+        media.read_transcript(empty)
 
 
-def test_missing_subtitles_stop_without_downloading(tmp_path):
-    with patch.object(media.yt_dlp, 'YoutubeDL') as mocked:
-        ydl = mocked.return_value.__enter__.return_value
-        ydl.extract_info.return_value = {'title': '无字幕视频', 'subtitles': {}, 'automatic_captions': {}}
-        with pytest.raises(ValueError, match='没有可获取的字幕'):
-            media.fetch_subtitles('https://youtu.be/example', tmp_path, store.settings(True))
-        ydl.extract_info.assert_called_once_with('https://youtu.be/example', download=False)
-        ydl.urlopen.assert_not_called()
+def test_txt_upload_creates_note_and_preserves_transcript(client):
+    with patch.object(service.EXECUTOR, 'submit'):
+        response = client.post('/api/jobs/upload', files={'file': ('操作系统导论.txt', '00:00\n操作系统管理硬件。'.encode(), 'text/plain')})
+    assert response.status_code == 200
+    job_id = response.json()['id']
+    job = store.one('SELECT * FROM jobs WHERE id=?', (job_id,))
+    assert job['kind'] == 'txt'
+    upload_path = Path(json.loads(job['payload'])['path'])
+    assert upload_path.exists()
+    store.save_settings({'model': 'test'})
+    with patch.object(ai, 'generate', return_value='# 操作系统导论\n\n操作系统管理硬件。'):
+        service.run_job(job_id)
+    completed = store.one('SELECT * FROM jobs WHERE id=?', (job_id,))
+    note = client.get('/api/notes/' + completed['note_id']).json()
+    assert note['kind'] == 'txt'
+    assert note['source'] == '操作系统导论.txt'
+    assert note['transcript'] == '00:00\n操作系统管理硬件。'
+    assert not upload_path.exists()
+
+
+def test_upload_rejects_non_txt_non_mp4(client):
+    response = client.post('/api/jobs/upload', files={'file': ('captions.srt', b'captions', 'text/plain')})
+    assert response.status_code == 400
+    assert '.txt' in response.json()['detail']
+
+
+def test_legacy_url_job_has_actionable_failure():
+    with patch.object(service.EXECUTOR, 'submit'):
+        job_id = service.new_job('url', '旧链接任务', {'url': 'https://example.test/video'})
+    store.save_settings({'model': 'test'})
+    service.run_job(job_id)
+    job = store.one('SELECT * FROM jobs WHERE id=?', (job_id,))
+    assert job['status'] == 'failed'
+    assert '上传 .txt 字幕文件' in job['error']
 
 
 def test_long_generation_preserves_every_segment_and_reuses_checkpoints():
@@ -105,12 +137,12 @@ def test_long_generation_preserves_every_segment_and_reuses_checkpoints():
     text = ('这是重要的原始细节。\n' * 800) + '最后一个知识点。'
     parts = ai.chunks(text, 2000)
     with patch.object(ai, 'completion', side_effect=[f'## 章节 {i}\n\n保留细节 {i}。' for i in range(len(parts))]) as llm, patch.object(ai, 'json_completion', return_value={'title': '完整长课', 'tags': ['学习'], 'overview': '课程导读'}):
-        result = ai.generate(text, '长课', 'video', 'url', 'long-job', store.settings(True))
+        result = ai.generate(text, '长课', 'video', 'txt', 'long-job', store.settings(True))
         assert llm.call_count == len(parts)
         for i in range(len(parts)):
             assert f'保留细节 {i}。' in result
     with patch.object(ai, 'completion') as llm, patch.object(ai, 'json_completion', return_value={'title': '完整长课', 'tags': [], 'overview': ''}):
-        ai.generate(text, '长课', 'video', 'url', 'long-job', store.settings(True))
+        ai.generate(text, '长课', 'video', 'txt', 'long-job', store.settings(True))
         llm.assert_not_called()
 
 
@@ -155,7 +187,7 @@ def test_api_auth_origin_and_secret_redaction(client):
 
 
 def test_links_count_excludes_embeds_and_code(client):
-    store.create_note('一', '# 一\n[[二]] [[二|别名]] [[三#标题]] ![[图片.png]]\n```\n[[代码示例]]\n```', '', '', 'url')
+    store.create_note('一', '# 一\n[[二]] [[二|别名]] [[三#标题]] ![[图片.png]]\n```\n[[代码示例]]\n```', '', '', 'txt')
     stats = client.get('/api/stats').json()
     assert stats['links'] == 2 and stats['generated'] == 1
     assert len(stats['activity']) == 84
