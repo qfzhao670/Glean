@@ -35,8 +35,26 @@ function createWindow() {
 }
 function trusted(event) { if (!event.senderFrame || new URL(event.senderFrame.url).origin !== config.baseUrl) throw new Error('不受信任的窗口'); }
 ipcMain.handle('glean:config', event => { trusted(event); return config; });
-ipcMain.handle('glean:choose-vault', async event => { trusted(event); const result = await dialog.showOpenDialog(window, { title: '选择 Obsidian 仓库', properties: ['openDirectory'] }); return result.canceled ? null : result.filePaths[0]; });
-ipcMain.handle('glean:open-obsidian', (event, file) => { trusted(event); if (typeof file !== 'string' || !path.isAbsolute(file) || path.extname(file) !== '.md') return; return shell.openExternal(`obsidian://open?path=${encodeURIComponent(file)}`); });
+ipcMain.handle('glean:choose-vault', async event => { trusted(event); const result = await dialog.showOpenDialog(window, { title: '选择本地笔记仓库', properties: ['openDirectory', 'createDirectory'] }); return result.canceled ? null : result.filePaths[0]; });
+async function localData(endpoint) {
+  const response = await fetch(config.baseUrl + '/api' + endpoint, { headers: { 'X-Glean-Token': config.token } });
+  if (!response.ok) throw new Error('无法读取笔记保存位置');
+  return response.json();
+}
+ipcMain.handle('glean:open-repository', async event => {
+  trusted(event);
+  const repository = await localData('/repository');
+  if (!repository.available) throw new Error('仓库目录不存在，请重新选择');
+  const error = await shell.openPath(repository.path);
+  if (error) throw new Error(error);
+});
+ipcMain.handle('glean:reveal-note', async (event, id) => {
+  trusted(event);
+  if (typeof id !== 'string' || !/^[a-f0-9]{32}$/.test(id)) throw new Error('无效的笔记');
+  const note = await localData('/notes/' + id);
+  if (!note.note_file || !path.isAbsolute(note.note_file)) throw new Error('笔记尚未保存到文件');
+  shell.showItemInFolder(note.note_file);
+});
 app.whenReady().then(start);
 app.on('window-all-closed', () => app.quit());
 app.on('before-quit', () => { backend?.kill('SIGKILL'); });

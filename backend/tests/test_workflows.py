@@ -132,18 +132,16 @@ def test_legacy_url_job_has_actionable_failure():
     assert '上传 .txt 字幕文件' in job['error']
 
 
-def test_long_generation_preserves_every_segment_and_reuses_checkpoints():
+def test_long_generation_reads_full_source_in_one_call():
     store.save_settings({'model': 'test', 'chunk_chars': 2000})
     text = ('这是重要的原始细节。\n' * 800) + '最后一个知识点。'
-    parts = ai.chunks(text, 2000)
-    with patch.object(ai, 'completion', side_effect=[f'## 章节 {i}\n\n保留细节 {i}。' for i in range(len(parts))]) as llm, patch.object(ai, 'json_completion', return_value={'title': '完整长课', 'tags': ['学习'], 'overview': '课程导读'}):
+    with patch.object(ai, 'completion', return_value='# 长课\n\n## 核心知识\n精简的复习要点。') as llm, patch.object(ai, 'json_completion') as synthesis:
         result = ai.generate(text, '长课', 'video', 'txt', 'long-job', store.settings(True))
-        assert llm.call_count == len(parts)
-        for i in range(len(parts)):
-            assert f'保留细节 {i}。' in result
-    with patch.object(ai, 'completion') as llm, patch.object(ai, 'json_completion', return_value={'title': '完整长课', 'tags': [], 'overview': ''}):
-        ai.generate(text, '长课', 'video', 'txt', 'long-job', store.settings(True))
-        llm.assert_not_called()
+        llm.assert_called_once()
+        synthesis.assert_not_called()
+        assert text in llm.call_args.args[0][1]['content']
+        assert '800–1500' in llm.call_args.args[0][0]['content']
+        assert result == '# 长课\n\n## 核心知识\n精简的复习要点。'
 
 
 def test_job_failure_can_retry_and_complete(client):
@@ -190,7 +188,8 @@ def test_links_count_excludes_embeds_and_code(client):
     store.create_note('一', '# 一\n[[二]] [[二|别名]] [[三#标题]] ![[图片.png]]\n```\n[[代码示例]]\n```', '', '', 'txt')
     stats = client.get('/api/stats').json()
     assert stats['links'] == 2 and stats['generated'] == 1
-    assert len(stats['activity']) == 84
+    assert 182 <= len(stats['activity']) <= 196
+    assert len(stats['activity']) % 7 == 0
 
 
 @pytest.fixture

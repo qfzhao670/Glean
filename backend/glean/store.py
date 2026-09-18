@@ -10,6 +10,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+from . import repository
+
 DATA = Path(os.environ.get('GLEAN_DATA_DIR', Path.cwd() / '.glean')).resolve()
 DATA.mkdir(parents=True, exist_ok=True, mode=0o700)
 LOCK = threading.RLock()
@@ -17,6 +19,7 @@ DEFAULTS = {
     'base_url': 'https://api.openai.com/v1', 'model': '', 'api_key': '',
     'transcription_base_url': '', 'transcription_model': 'whisper-1', 'transcription_key': '',
     'vault_path': '', 'notes_folder': 'Glean', 'chunk_chars': 12000,
+    'repository_path': '',
     'auto_patch': True,
 }
 
@@ -62,13 +65,23 @@ def init():
         CREATE TABLE IF NOT EXISTS events (
           id TEXT PRIMARY KEY, kind TEXT, note_id TEXT, created_at TEXT);
         ''')
-        c.execute("UPDATE jobs SET status='failed', error='应用已重启，任务中断。可以重试，已完成分段会继续使用。' WHERE status IN ('running','queued')")
+        if 'note_file' not in [r['name'] for r in c.execute('PRAGMA table_info(notes)')]:
+            c.execute("ALTER TABLE notes ADD COLUMN note_file TEXT DEFAULT ''")
+        c.execute("UPDATE jobs SET status='failed', error='应用已重启，任务中断。可以重试，已提取的字幕会继续使用。' WHERE status IN ('running','queued')")
+    (DATA / 'notes').mkdir(exist_ok=True)
+    # Existing database-only notes gain Markdown files on upgrade. A disconnected
+    # repository must not prevent startup; the library exposes the pending count.
+    try:
+        materialize_notes()
+    except ValueError:
+        pass
 
 
 def settings(private=False):
     path = DATA / 'settings.json'
     saved = json.loads(path.read_text()) if path.exists() else {}
     value = {key: saved.get(key, default) for key, default in DEFAULTS.items()}
+    value['repository_path'] = value['repository_path'] or str(DATA / 'notes')
     if not private:
         for key in ('api_key', 'transcription_key'):
             value['has_' + key] = bool(value[key])
@@ -84,12 +97,30 @@ def save_settings(value):
                 if key in ('api_key', 'transcription_key') and val == '':
                     continue  # Empty fields keep saved secrets; null explicitly clears them.
                 current[key] = '' if val is None else val
+        current['repository_path'] = str(repository.root(current['repository_path'] or str(DATA / 'notes')))
         path = DATA / 'settings.json'
         temporary = path.with_suffix('.tmp')
-        temporary.write_text(json.dumps(current, ensure_ascii=False, indent=2))
-        temporary.chmod(0o600)
-        temporary.replace(path)
+        with db() as c:
+            if current['repository_path'] != settings(True)['repository_path']:
+                # Copy to the newly chosen folder, keeping previous files intact.
+                _materialize(c, current['repository_path'], move=True)
+            temporary.write_text(json.dumps(current, ensure_ascii=False, indent=2))
+            temporary.chmod(0o600)
+            temporary.replace(path)
     return settings()
+
+
+def materialize_notes(folder=None, move=False):
+    folder = folder or settings(True)['repository_path']
+    with db() as c:
+        _materialize(c, folder, move)
+
+
+def _materialize(c, folder, move=False):
+    for row in c.execute('SELECT * FROM notes').fetchall():
+        if move or not row['note_file']:
+            path = repository.write(folder, row['title'], row['content'])
+            c.execute('UPDATE notes SET note_file=? WHERE id=?', (path, row['id']))
 
 
 def rows(query, params=()):
@@ -121,13 +152,15 @@ def update_job(job_id, **values):
 def create_note(title, content, transcript, source, kind, duration=0):
     note_id, timestamp = uid(), now()
     with db() as c:
-        c.execute('INSERT INTO notes VALUES (?,?,?,?,?,?,?,?,?,?)',
+        c.execute('INSERT INTO notes (id,title,content,transcript,source,kind,duration,vault_file,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
                   (note_id, title, content, transcript, source, kind, duration, '', timestamp, timestamp))
-        c.execute('INSERT INTO events VALUES (?,?,?,?)', (uid(), 'curated' if kind == 'curate' else 'generated', note_id, timestamp))
+        c.execute('INSERT INTO events VALUES (?,?,?,?)', (uid(), 'manual' if kind == 'manual' else 'curated' if kind == 'curate' else 'generated', note_id, timestamp))
+        path = repository.write(settings(True)['repository_path'], title, content)
+        c.execute('UPDATE notes SET note_file=? WHERE id=?', (path, note_id))
     return note_id
 
 
-def revise(note_id, content, reason, expected=None):
+def revise(note_id, content, reason, expected=None, title=None):
     with db() as c:
         note = c.execute('SELECT * FROM notes WHERE id=?', (note_id,)).fetchone()
         if not note:
@@ -135,6 +168,11 @@ def revise(note_id, content, reason, expected=None):
         if expected is not None and note['content'] != expected:
             raise ValueError('笔记已发生变化，请刷新后再试')
         c.execute('INSERT INTO revisions VALUES (?,?,?,?,?)', (uid(), note_id, note['content'], reason, now()))
-        c.execute('UPDATE notes SET content=?,title=?,updated_at=? WHERE id=?', (content, title_of(content, note['title']), now(), note_id))
+        title = title or title_of(content, note['title'])
+        c.execute('UPDATE notes SET content=?,title=?,updated_at=? WHERE id=?', (content, title, now(), note_id))
         if reason == 'chat_patch':
             c.execute('INSERT INTO events VALUES (?,?,?,?)', (uid(), 'patch', note_id, now()))
+        elif reason == 'edit':
+            c.execute('INSERT INTO events VALUES (?,?,?,?)', (uid(), 'edit', note_id, now()))
+        path = repository.write(settings(True)['repository_path'], title, content, note['note_file'], note['content'])
+        c.execute('UPDATE notes SET note_file=? WHERE id=?', (path, note_id))

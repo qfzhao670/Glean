@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from concurrent.futures import ThreadPoolExecutor
@@ -78,7 +77,7 @@ def run_job(job_id):
             embeds = re.findall(r'!\[\[[^\]]+\]\]|!\[[^\]]*\]\([^\)]+\)', original)
             missing = [e for e in embeds if e not in content]
             if missing:
-                raise ValueError('模型遗漏了原笔记中的图片引用，本次未保存。请减小分段长度后重试。')
+                raise ValueError('模型遗漏了原笔记中的图片引用，本次未保存。请重试或换用其他模型。')
         if payload.get('note_id'):
             note_id = payload['note_id']
             store.revise(note_id, content, 'curate', expected=original)
@@ -89,8 +88,8 @@ def run_job(job_id):
             if original:
                 with store.db() as c:
                     c.execute('INSERT INTO revisions VALUES (?,?,?,?,?)', (store.uid(), note_id, original, 'original_import', store.now()))
-        store.update_job(job_id, status='completed', stage='笔记已生长', progress=100, note_id=note_id)
-        # Keep subtitles/checkpoints, remove large temporary audio/video after success.
+        store.update_job(job_id, status='completed', stage='已保存到本地笔记仓库', progress=100, note_id=note_id)
+        # Keep extracted subtitles, remove large temporary audio/video after success.
         for audio in folder.glob('audio-*.wav'):
             audio.unlink(missing_ok=True)
         if job['kind'] in ('txt', 'mp4'):

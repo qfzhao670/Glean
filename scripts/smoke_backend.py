@@ -31,7 +31,14 @@ with tempfile.TemporaryDirectory(prefix='glean-packaged-smoke-') as folder:
             assert client.get('/api/settings').json()['api_key'] == ''
             assert 'root' in client.get('/').text
             assert client.get('/api/notes', headers={'X-Glean-Token': 'invalid'}).status_code == 401
-            print('Frozen sidecar smoke test passed: startup, UI, database, settings, auth.')
+            note = client.post('/api/notes', json={'title': '本地笔记', 'content': '# 本地笔记\n原始正文'}).json()
+            note_file = Path(note['note_file'])
+            assert note_file.read_text() == note['content']
+            changed = client.put('/api/notes/' + note['id'], json={'content': '# 本地笔记\n修改正文', 'expected': note['content']}).json()
+            assert note_file.read_text() == changed['content']
+            stats = client.get('/api/stats').json()
+            assert stats['manual'] == 1 and len(stats['activity']) >= 182
+            print('Frozen sidecar smoke test passed: startup, UI, database, settings, auth, Markdown create/edit, six-month activity.')
     finally:
         process.kill()
         process.wait()

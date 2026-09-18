@@ -5,6 +5,7 @@ import os
 import re
 import secrets
 import shutil
+import calendar
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Literal
@@ -14,7 +15,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from . import ai, media, service, store
+from . import ai, media, repository, service, store
 
 store.init()
 TOKEN = os.environ.get('GLEAN_TOKEN') or secrets.token_urlsafe(32)
@@ -57,6 +58,7 @@ class Settings(BaseModel):
     notes_folder: str = Field(default='Glean', max_length=200)
     chunk_chars: int = Field(default=12000, ge=2000, le=24000)
     auto_patch: bool = True
+    repository_path: str = Field(default='', max_length=2000)
     @field_validator('base_url', 'transcription_base_url')
     @classmethod
     def url(cls, value):
@@ -90,11 +92,21 @@ class ChatInput(BaseModel):
 class EditInput(BaseModel):
     content: str = Field(max_length=2_000_000)
     expected: str = Field(max_length=2_000_000)
+    title: str | None = Field(default=None, min_length=1, max_length=160)
+
+
+class NoteInput(BaseModel):
+    title: str = Field(default='未命名笔记', min_length=1, max_length=160)
+    content: str = Field(default='', max_length=2_000_000)
+
+
+class RepositoryInput(BaseModel):
+    path: str = Field(min_length=1, max_length=2000)
 
 
 @app.get('/api/health')
 def health():
-    return {'ok': True, 'version': '0.1.1'}
+    return {'ok': True, 'version': '0.2.0'}
 
 
 @app.get('/api/settings')
@@ -111,9 +123,21 @@ def reveal_secret(name: Literal['api_key', 'transcription_key']):
 
 @app.put('/api/settings')
 def write_settings(value: Settings):
-    if value.vault_path and not Path(value.vault_path).expanduser().is_dir():
-        raise ValueError('仓库目录不存在，请重新选择。')
     return store.save_settings(value.model_dump())
+
+
+@app.get('/api/repository')
+def read_repository():
+    path = store.settings(True)['repository_path']
+    pending = store.one("SELECT COUNT(*) AS count FROM notes WHERE note_file=''")['count']
+    return {'path': path, 'available': Path(path).is_dir(), 'pending': pending}
+
+
+@app.put('/api/repository')
+def choose_repository(value: RepositoryInput):
+    store.save_settings({'repository_path': value.path})
+    store.materialize_notes()
+    return read_repository()
 
 
 @app.post('/api/settings/test')
@@ -135,9 +159,17 @@ def stats():
     while cursor.isoformat() in days:
         streak += 1
         cursor -= timedelta(days=1)
-    start = today - timedelta(days=today.weekday() + 77)
-    activity = [{'date': (start + timedelta(days=i)).isoformat(), 'count': days.get((start + timedelta(days=i)).isoformat(), 0)} for i in range(84)]
-    return {'generated': sum(n['kind'] != 'curate' for n in notes), 'curated': sum(n['kind'] == 'curate' for n in notes),
+    month_index = today.year * 12 + today.month - 1 - 6
+    year, month = divmod(month_index, 12)
+    first = date(year, month + 1, min(today.day, calendar.monthrange(year, month + 1)[1]))
+    start = first - timedelta(days=first.weekday())
+    end = today + timedelta(days=6 - today.weekday())
+    activity = [{'date': (start + timedelta(days=i)).isoformat(),
+                 'count': days.get((start + timedelta(days=i)).isoformat(), 0),
+                 'in_range': first <= start + timedelta(days=i) <= today}
+                for i in range((end - start).days + 1)]
+    return {'generated': sum(n['kind'] in ('txt', 'mp4', 'url') for n in notes), 'curated': sum(n['kind'] == 'curate' for n in notes),
+            'manual': sum(n['kind'] == 'manual' for n in notes),
             'notes': len(notes), 'links': sum(len(store.links(n['content'])) for n in notes),
             'minutes': round(sum(n['duration'] for n in notes) / 60), 'patches': sum(e['kind'] == 'patch' for e in events),
             'streak': streak, 'active_days': len(days), 'activity': activity,
@@ -146,13 +178,21 @@ def stats():
 
 @app.get('/api/notes')
 def notes():
-    values = store.rows('SELECT id,title,content,source,kind,duration,vault_file,created_at,updated_at FROM notes ORDER BY updated_at DESC')
+    values = store.rows('SELECT id,title,content,source,kind,duration,vault_file,note_file,created_at,updated_at FROM notes ORDER BY updated_at DESC')
     for note in values:
         content = note.pop('content')
         body = re.sub(r'\A---\n.*?\n---\n', '', content, flags=re.S)
         note['excerpt'] = re.sub(r'[#*>\[\]=`]', '', body).strip().replace('\n', ' ')[:130]
         note['links'] = len(store.links(content))
     return values
+
+
+@app.post('/api/notes')
+def create_note(value: NoteInput):
+    title = value.title.strip() or '未命名笔记'
+    content = value.content or f'# {title}\n\n'
+    note_id = store.create_note(store.title_of(content, title), content, '', '手动创建', 'manual')
+    return note(note_id)
 
 
 @app.get('/api/notes/{note_id}')
@@ -165,7 +205,7 @@ def note(note_id: str):
 
 @app.put('/api/notes/{note_id}')
 def edit(note_id: str, value: EditInput):
-    store.revise(note_id, value.content, 'edit', value.expected)
+    store.revise(note_id, value.content, 'edit', value.expected, title=value.title)
     return note(note_id)
 
 
@@ -267,9 +307,7 @@ def retry(job_id: str):
 @app.get('/api/vault/notes')
 def vault_notes():
     cfg = store.settings(True)
-    if not cfg['vault_path']:
-        return []
-    root = Path(cfg['vault_path']).expanduser().resolve()
+    root = repository.root(cfg['repository_path'])
     return [{'path': str(p.relative_to(root)), 'title': p.stem} for p in root.rglob('*.md')
             if not any(part.startswith('.') for part in p.relative_to(root).parts) and p.resolve().is_relative_to(root)][:3000]
 
@@ -280,7 +318,10 @@ class VaultImport(BaseModel):
 
 @app.post('/api/vault/import')
 def import_vault(value: VaultImport):
-    target = service.vault_target(value.path)
+    root = repository.root(store.settings(True)['repository_path'])
+    target = (root / value.path).resolve()
+    if not target.is_relative_to(root) or target.suffix.lower() != '.md':
+        raise ValueError('只能读取所选仓库内的 Markdown 文件。')
     if not target.is_file() or target.stat().st_size > 2_000_000:
         raise ValueError('文件不存在或超过 2 MB。')
     return {'title': target.stem, 'content': target.read_text(encoding='utf-8')}
