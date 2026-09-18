@@ -123,3 +123,7 @@
 .inline-block-editor textarea:focus{outline:2px solid #8eaa78;outline-offset:2px}
 .inline-block-editor>span{display:block;margin-top:7px;font-size:9px;color:#a0ad96;text-align:right}
 @media(max-width:680px){.inline-note-title-input{font-size:26px}.inline-block-editor textarea{padding:12px}}
+
+/* The garden already fills the viewport; vertical translation briefly creates page overflow. */
+.dashboard.page-enter{animation:dashboard-enter .35s ease-out}
+@keyframes dashboard-enter{from{opacity:0}to{opacity:1}}
