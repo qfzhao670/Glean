@@ -176,3 +176,16 @@ def revise(note_id, content, reason, expected=None, title=None):
             c.execute('INSERT INTO events VALUES (?,?,?,?)', (uid(), 'edit', note_id, now()))
         path = repository.write(settings(True)['repository_path'], title, content, note['note_file'], note['content'])
         c.execute('UPDATE notes SET note_file=? WHERE id=?', (path, note_id))
+
+
+def delete_note(note_id):
+    with db() as c:
+        note = c.execute('SELECT * FROM notes WHERE id=?', (note_id,)).fetchone()
+        if not note:
+            raise ValueError('笔记不存在')
+        repository.remove(settings(True)['repository_path'], note['note_file'], note['content'])
+        c.execute('DELETE FROM messages WHERE note_id=?', (note_id,))
+        c.execute('DELETE FROM revisions WHERE note_id=?', (note_id,))
+        c.execute('DELETE FROM events WHERE note_id=?', (note_id,))
+        c.execute('DELETE FROM jobs WHERE note_id=?', (note_id,))
+        c.execute('DELETE FROM notes WHERE id=?', (note_id,))

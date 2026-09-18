@@ -68,3 +68,21 @@ def write(folder, title, content, current='', expected=None):
             Path(temporary).unlink(missing_ok=True)
     except (OSError, UnicodeError) as exc:
         raise ValueError(f'无法保存到笔记仓库 {folder}，请检查文件夹权限和磁盘空间。') from exc
+
+
+def remove(folder, current, expected):
+    """Remove only the managed Markdown file and refuse external changes."""
+    if not current:
+        return
+    folder = root(folder)
+    target = Path(current)
+    try:
+        if target.is_symlink() or not target.resolve().is_relative_to(folder):
+            raise ValueError('笔记文件已移出当前仓库，请检查保存位置。')
+        if not target.exists():
+            return
+        if target.read_text(encoding='utf-8') != expected:
+            raise ValueError('仓库文件已被外部程序修改，本次未删除。请先备份或导入外部版本。')
+        target.unlink()
+    except (OSError, UnicodeError) as exc:
+        raise ValueError(f'无法从笔记仓库 {folder} 删除文件，请检查文件夹权限。') from exc

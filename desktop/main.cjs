@@ -35,7 +35,20 @@ function createWindow() {
 }
 function trusted(event) { if (!event.senderFrame || new URL(event.senderFrame.url).origin !== config.baseUrl) throw new Error('不受信任的窗口'); }
 ipcMain.handle('glean:config', event => { trusted(event); return config; });
-ipcMain.handle('glean:choose-vault', async event => { trusted(event); const result = await dialog.showOpenDialog(window, { title: '选择本地笔记仓库', properties: ['openDirectory', 'createDirectory'] }); return result.canceled ? null : result.filePaths[0]; });
+ipcMain.handle('glean:choose-vault', async event => {
+  trusted(event);
+  let defaultPath;
+  try {
+    const repository = await localData('/repository');
+    if (typeof repository.path === 'string' && path.isAbsolute(repository.path)) defaultPath = path.dirname(repository.path);
+  } catch {}
+  const result = await dialog.showOpenDialog(window, {
+    title: '选择本地笔记仓库',
+    properties: ['openDirectory', 'createDirectory'],
+    ...(defaultPath ? { defaultPath } : {}),
+  });
+  return result.canceled ? null : result.filePaths[0];
+});
 async function localData(endpoint) {
   const response = await fetch(config.baseUrl + '/api' + endpoint, { headers: { 'X-Glean-Token': config.token } });
   if (!response.ok) throw new Error('无法读取笔记保存位置');

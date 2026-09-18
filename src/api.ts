@@ -14,4 +14,29 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   return response.json();
 }
 export const post = <T,>(path: string, body?: unknown) => api<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
+export async function streamJsonLines<T>(path: string, body: unknown, onEvent: (event: T) => void) {
+  const response = await fetch(baseUrl + '/api' + path, {
+    method: 'POST', body: JSON.stringify(body),
+    headers: { 'X-Glean-Token': token, 'Content-Type': 'application/json' },
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(typeof error.detail === 'string' ? error.detail : '操作未完成，请检查输入后重试。');
+  }
+  if (!response.body) throw new Error('当前环境不支持流式回答。');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    const lines = buffer.split('\n');
+    buffer = done ? '' : lines.pop() || '';
+    for (const line of lines) if (line.trim()) onEvent(JSON.parse(line) as T);
+    if (done) {
+      if (buffer.trim()) onEvent(JSON.parse(buffer) as T);
+      break;
+    }
+  }
+}
 export function download(name: string, content: string, extension = 'md') { const type = extension === 'txt' ? 'text/plain;charset=utf-8' : 'text/markdown;charset=utf-8'; const url = URL.createObjectURL(new Blob([content], { type })); const link = document.createElement('a'); link.href = url; link.download = name.replace(/[<>:"/\\|?*]/g, '-') + '.' + extension; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }

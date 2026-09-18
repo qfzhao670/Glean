@@ -196,7 +196,18 @@ def test_links_count_excludes_embeds_and_code(client):
 def model_server():
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):
-            self.rfile.read(int(self.headers['Content-Length']))
+            body = self.rfile.read(int(self.headers['Content-Length']))
+            request = {} if self.path.endswith('/audio/transcriptions') else json.loads(body)
+            if request.get('stream'):
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/event-stream')
+                self.end_headers()
+                for content, finish in [('模型服务', None), ('流式连接成功', 'stop')]:
+                    event = {'choices': [{'delta': {'content': content}, 'finish_reason': finish}]}
+                    self.wfile.write(('data: ' + json.dumps(event, ensure_ascii=False) + '\n\n').encode())
+                    self.wfile.flush()
+                self.wfile.write(b'data: [DONE]\n\n')
+                return
             result = {'text': '这是从视频声音得到的字幕。'} if self.path.endswith('/audio/transcriptions') else {'choices': [{'finish_reason': 'stop', 'message': {'content': '模型服务连接成功'}}]}
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
@@ -214,6 +225,12 @@ def model_server():
 def test_real_http_model_protocol(model_server):
     config = {**store.settings(True), 'base_url': model_server, 'model': 'fixture-model'}
     assert ai.completion([{'role': 'user', 'content': '你好'}], config) == '模型服务连接成功'
+
+
+def test_real_http_streaming_model_protocol(model_server):
+    config = {**store.settings(True), 'base_url': model_server, 'model': 'fixture-model'}
+    chunks = list(ai.completion_stream([{'role': 'user', 'content': '你好'}], config))
+    assert chunks == ['模型服务', '流式连接成功']
 
 
 def test_mp4_to_audio_to_transcript(tmp_path, model_server):

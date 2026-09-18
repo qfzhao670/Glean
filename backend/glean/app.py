@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -209,6 +209,12 @@ def edit(note_id: str, value: EditInput):
     return note(note_id)
 
 
+@app.delete('/api/notes/{note_id}')
+def delete_note(note_id: str):
+    store.delete_note(note_id)
+    return {'ok': True}
+
+
 @app.post('/api/notes/{note_id}/restore/{revision_id}')
 def restore(note_id: str, revision_id: str):
     revision = store.one('SELECT * FROM revisions WHERE id=? AND note_id=?', (revision_id, note_id))
@@ -247,6 +253,54 @@ def chat(note_id: str, value: ChatInput):
         c.execute('INSERT INTO messages VALUES (?,?,?,?,?,?)', (store.uid(), note_id, 'user', value.message, '', store.now()))
         c.execute('INSERT INTO messages VALUES (?,?,?,?,?,?)', (store.uid(), note_id, 'assistant', answer, patch_status, store.now()))
     return note(note_id)
+
+
+@app.post('/api/notes/{note_id}/chat/stream')
+def stream_chat(note_id: str, value: ChatInput):
+    current = get_note(note_id)
+    history = store.rows('SELECT role,content FROM messages WHERE note_id=? ORDER BY created_at', (note_id,))
+    config = store.settings(True)
+
+    def event(kind, **values):
+        return json.dumps({'type': kind, **values}, ensure_ascii=False) + '\n'
+
+    def generate():
+        answer_parts = []
+        try:
+            for delta in ai.chat_stream(current, history, value.message, config):
+                answer_parts.append(delta)
+                yield event('delta', content=delta)
+            answer = ''.join(answer_parts).strip()
+            if not answer:
+                raise ValueError('模型返回的回答为空，请重试。')
+            patch_status = ''
+            if config['auto_patch']:
+                try:
+                    patch = ai.chat_patch(current, value.message, answer, config)
+                    if patch:
+                        patched = ai.apply_patch(current['content'], patch)
+                        if patched:
+                            try:
+                                store.revise(note_id, patched, 'chat_patch', expected=current['content'])
+                                patch_status = '已添加可撤销的知识补丁'
+                            except ValueError:
+                                patch_status = '笔记已更新，本次补丁未自动写入'
+                        else:
+                            patch_status = '未找到唯一原句或内容重复，本次未写入补丁'
+                except ValueError:
+                    patch_status = '回答已保存，知识补丁生成失败'
+            with store.db() as c:
+                c.execute('INSERT INTO messages VALUES (?,?,?,?,?,?)', (store.uid(), note_id, 'user', value.message, '', store.now()))
+                c.execute('INSERT INTO messages VALUES (?,?,?,?,?,?)', (store.uid(), note_id, 'assistant', answer, patch_status, store.now()))
+            yield event('done', note=note(note_id))
+        except ValueError as exc:
+            yield event('error', message=str(exc))
+        except Exception:
+            yield event('error', message='对话未完成，请重试。')
+
+    return StreamingResponse(generate(), media_type='application/x-ndjson', headers={
+        'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+    })
 
 
 @app.get('/api/jobs')
