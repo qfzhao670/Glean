@@ -13,7 +13,7 @@ with socket.socket() as sock:
     sock.bind(('127.0.0.1', 0))
     port = sock.getsockname()[1]
 with tempfile.TemporaryDirectory(prefix='glean-packaged-smoke-') as folder:
-    env = {**os.environ, 'GLEAN_DATA_DIR': folder, 'GLEAN_UI_DIR': str(root / 'dist'), 'GLEAN_PORT': str(port), 'GLEAN_TOKEN': 'isolated-smoke-token'}
+    env = {**os.environ, 'GLEAN_DATA_DIR': folder, 'GLEAN_UI_DIR': str(root / 'dist'), 'GLEAN_BUNDLED_MODEL_DIR': str(root / '.model-bundle/whisper-large-v3-turbo-4bit'), 'GLEAN_PORT': str(port), 'GLEAN_TOKEN': 'isolated-smoke-token'}
     process = subprocess.Popen([str(root / 'dist/glean-backend/glean-backend')], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
         with httpx.Client(base_url=f'http://127.0.0.1:{port}', headers={'X-Glean-Token': env['GLEAN_TOKEN']}, trust_env=False) as client:
@@ -29,6 +29,9 @@ with tempfile.TemporaryDirectory(prefix='glean-packaged-smoke-') as folder:
                 raise RuntimeError('Frozen backend startup timed out')
             assert client.get('/api/stats').json()['notes'] == 0
             assert client.get('/api/settings').json()['api_key'] == ''
+            transcription = client.get('/api/transcription/status').json()
+            assert transcription['available'] is True, transcription
+            assert transcription['model_downloaded'] is True, transcription
             assert 'root' in client.get('/').text
             assert client.get('/api/notes', headers={'X-Glean-Token': 'invalid'}).status_code == 401
             note = client.post('/api/notes', json={'title': '本地笔记', 'content': '# 本地笔记\n原始正文'}).json()
@@ -38,7 +41,7 @@ with tempfile.TemporaryDirectory(prefix='glean-packaged-smoke-') as folder:
             assert note_file.read_text() == changed['content']
             stats = client.get('/api/stats').json()
             assert stats['manual'] == 1 and len(stats['activity']) >= 182
-            print('Frozen sidecar smoke test passed: startup, UI, database, settings, auth, Markdown create/edit, six-month activity.')
+            print('Frozen sidecar smoke test passed: startup, UI, database, settings, local MLX engine, auth, Markdown create/edit, six-month activity.')
     finally:
         process.kill()
         process.wait()

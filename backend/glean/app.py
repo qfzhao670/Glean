@@ -53,7 +53,8 @@ class Settings(BaseModel):
     api_key: str | None = Field(default='', max_length=4000)
     transcription_base_url: str = Field(default='', max_length=1000)
     transcription_key: str | None = Field(default='', max_length=4000)
-    transcription_model: str = Field(default='whisper-1', max_length=200)
+    transcription_model: Literal['mlx-community/whisper-large-v3-turbo-4bit'] = 'mlx-community/whisper-large-v3-turbo-4bit'
+    transcription_language: Literal['auto', 'zh', 'en'] = 'auto'
     vault_path: str = Field(default='', max_length=2000)
     notes_folder: str = Field(default='Glean', max_length=200)
     chunk_chars: int = Field(default=12000, ge=2000, le=24000)
@@ -112,6 +113,11 @@ def health():
 @app.get('/api/settings')
 def read_settings():
     return store.settings()
+
+
+@app.get('/api/transcription/status')
+def transcription_status():
+    return media.local_engine_status(store.settings(True)['transcription_model'])
 
 
 @app.post('/api/settings/secrets/{name}/reveal')

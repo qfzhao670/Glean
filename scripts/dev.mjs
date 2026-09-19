@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import path from 'node:path';
 const token = randomBytes(32).toString('hex');
-const env = { ...process.env, GLEAN_TOKEN: token, GLEAN_PORT: '8765', VITE_GLEAN_TOKEN: token };
+const env = { ...process.env, GLEAN_TOKEN: token, GLEAN_PORT: '8765', GLEAN_BUNDLED_MODEL_DIR: path.resolve('.model-bundle/whisper-large-v3-turbo-4bit'), VITE_GLEAN_TOKEN: token };
 const python = process.platform === 'win32' ? '.venv/Scripts/python.exe' : '.venv/bin/python';
 const backend = spawn(python, ['backend/entry.py'], { env, stdio: 'inherit' });
 const ui = spawn(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'dev:ui'], { env, stdio: 'inherit' });

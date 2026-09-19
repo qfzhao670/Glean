@@ -3,5 +3,6 @@ uvicorn>=0.34,<1
 httpx>=0.28,<1
 python-multipart>=0.0.20,<1
 imageio-ffmpeg>=0.6,<1
+mlx-whisper==0.4.3; platform_system == "Darwin" and platform_machine == "arm64"
 pytest>=8,<10
 pyinstaller>=6.15,<7

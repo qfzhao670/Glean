@@ -17,7 +17,8 @@ DATA.mkdir(parents=True, exist_ok=True, mode=0o700)
 LOCK = threading.RLock()
 DEFAULTS = {
     'base_url': 'https://api.openai.com/v1', 'model': '', 'api_key': '',
-    'transcription_base_url': '', 'transcription_model': 'whisper-1', 'transcription_key': '',
+    'transcription_base_url': '', 'transcription_model': 'mlx-community/whisper-large-v3-turbo-4bit',
+    'transcription_language': 'auto', 'transcription_key': '',
     'vault_path': '', 'notes_folder': 'Glean', 'chunk_chars': 12000,
     'repository_path': '',
     'auto_patch': True,
@@ -81,6 +82,11 @@ def settings(private=False):
     path = DATA / 'settings.json'
     saved = json.loads(path.read_text()) if path.exists() else {}
     value = {key: saved.get(key, default) for key, default in DEFAULTS.items()}
+    # Migrate every cloud Whisper model used by older releases. Legacy service
+    # credentials stay readable for settings-file compatibility, but local
+    # transcription never reads or sends them.
+    if value['transcription_model'] != DEFAULTS['transcription_model']:
+        value['transcription_model'] = DEFAULTS['transcription_model']
     value['repository_path'] = value['repository_path'] or str(DATA / 'notes')
     if not private:
         for key in ('api_key', 'transcription_key'):

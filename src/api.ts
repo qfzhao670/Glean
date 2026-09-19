@@ -3,7 +3,7 @@ export interface Message { id: string; role: string; content: string; patch: str
 export interface Revision { id: string; reason: string; created_at: string }
 export interface Job { id: string; status: string; title: string; kind: string; stage: string; progress: number; error: string; note_id: string }
 export interface Stats { generated: number; curated: number; manual: number; notes: number; links: number; minutes: number; patches: number; streak: number; active_days: number; activity: { date: string; count: number; in_range: boolean }[]; graph: { id: string; title: string; links: string[] }[] }
-export interface Settings { base_url: string; model: string; api_key: string | null; has_api_key?: boolean; transcription_base_url: string; transcription_model: string; transcription_key: string | null; has_transcription_key?: boolean; vault_path: string; repository_path: string; notes_folder: string; chunk_chars: number; auto_patch: boolean }
+export interface Settings { base_url: string; model: string; api_key: string | null; has_api_key?: boolean; transcription_base_url: string; transcription_model: string; transcription_language: 'auto' | 'zh' | 'en'; transcription_key: string | null; has_transcription_key?: boolean; vault_path: string; repository_path: string; notes_folder: string; chunk_chars: number; auto_patch: boolean }
 declare global { interface Window { glean?: { config: () => Promise<{ token: string; baseUrl: string }>; chooseVault: () => Promise<string | null>; revealNote: (id: string) => Promise<void>; openRepository: () => Promise<void> } } }
 let token = import.meta.env.VITE_GLEAN_TOKEN || '';
 let baseUrl = '';

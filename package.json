@@ -5,13 +5,14 @@
   "description": "拾知 · 让每一次学习，留下生长的痕迹",
   "main": "desktop/main.cjs",
   "scripts": {
-    "dev": "node scripts/dev.mjs",
+    "stage:model": "node scripts/stage-model.mjs",
+    "dev": "npm run stage:model && node scripts/dev.mjs",
     "dev:ui": "vite --host 127.0.0.1",
-    "desktop": "npm run build && electron .",
+    "desktop": "npm run stage:model && npm run build && electron .",
     "build": "tsc -b && vite build",
     "test": "node --experimental-strip-types --test tests/*.test.mjs && .venv/bin/python -m pytest backend/tests -q",
     "build:backend": "PYINSTALLER_CONFIG_DIR=/private/tmp/glean-pyinstaller .venv/bin/python -m PyInstaller --noconfirm backend/glean.spec",
-    "package": "npm run build && npm run build:backend && node node_modules/electron/install.js && electron-builder --dir"
+    "package": "npm run stage:model && npm run build && npm run build:backend && node node_modules/electron/install.js && electron-builder --dir"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
@@ -48,6 +49,10 @@
           "index.html",
           "assets/**/*"
         ]
+      },
+      {
+        "from": ".model-bundle/whisper-large-v3-turbo-4bit",
+        "to": "models/whisper-large-v3-turbo-4bit"
       }
     ],
     "directories": {

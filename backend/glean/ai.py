@@ -27,7 +27,7 @@ def clean_markdown(text):
     return re.sub(r'^```(?:markdown|md)?\s*\n(.*)\n```\s*$', r'\1', text.strip(), flags=re.S)
 
 
-def completion(messages, config=None, max_tokens=7000):
+def completion(messages, config=None, max_tokens=None):
     cfg = config or store.settings(True)
     if not cfg['model'].strip():
         raise ValueError('请先在设置中填写文本模型名称。')
@@ -36,9 +36,10 @@ def completion(messages, config=None, max_tokens=7000):
     for attempt in range(3):
         try:
             with httpx.Client(timeout=httpx.Timeout(240, connect=20), trust_env=False) as client:
-                response = client.post(url, headers=headers, json={
-                    'model': cfg['model'], 'messages': messages, 'max_tokens': max_tokens,
-                })
+                payload = {'model': cfg['model'], 'messages': messages}
+                if max_tokens is not None:
+                    payload['max_tokens'] = max_tokens
+                response = client.post(url, headers=headers, json=payload)
             if response.status_code in (429, 500, 502, 503, 504) and attempt < 2:
                 time.sleep(2 ** attempt)
                 continue
@@ -137,7 +138,7 @@ def generate(text, title, source, kind, job_id, config):
     result = clean_markdown(completion([
         {'role': 'system', 'content': rules + link_context},
         {'role': 'user', 'content': f'{prompt}\n主题：{title}\n来源：{source}\n<素材>\n{text}\n</素材>'},
-    ], config, max_tokens=5000))
+    ], config))
     if not result.strip():
         raise ValueError('模型未生成有效笔记，请重试。')
     if kind == 'curate':

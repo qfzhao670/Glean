@@ -141,6 +141,7 @@ def test_long_generation_reads_full_source_in_one_call():
         synthesis.assert_not_called()
         assert text in llm.call_args.args[0][1]['content']
         assert '800–1500' in llm.call_args.args[0][0]['content']
+        assert len(llm.call_args.args) == 2
         assert result == '# 长课\n\n## 核心知识\n精简的复习要点。'
 
 
@@ -184,6 +185,13 @@ def test_api_auth_origin_and_secret_redaction(client):
     assert store.settings(True)['api_key'] == ''
 
 
+def test_cloud_transcription_setting_migrates_to_local_model():
+    store.save_settings({'transcription_model': 'whisper-1', 'transcription_base_url': 'https://speech.example/v1'})
+    settings = store.settings(True)
+    assert settings['transcription_model'] == 'mlx-community/whisper-large-v3-turbo-4bit'
+    assert settings['transcription_base_url'] == 'https://speech.example/v1'  # retained but never used
+
+
 def test_links_count_excludes_embeds_and_code(client):
     store.create_note('一', '# 一\n[[二]] [[二|别名]] [[三#标题]] ![[图片.png]]\n```\n[[代码示例]]\n```', '', '', 'txt')
     stats = client.get('/api/stats').json()
@@ -197,7 +205,7 @@ def model_server():
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):
             body = self.rfile.read(int(self.headers['Content-Length']))
-            request = {} if self.path.endswith('/audio/transcriptions') else json.loads(body)
+            request = json.loads(body)
             if request.get('stream'):
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/event-stream')
@@ -208,7 +216,7 @@ def model_server():
                     self.wfile.flush()
                 self.wfile.write(b'data: [DONE]\n\n')
                 return
-            result = {'text': '这是从视频声音得到的字幕。'} if self.path.endswith('/audio/transcriptions') else {'choices': [{'finish_reason': 'stop', 'message': {'content': '模型服务连接成功'}}]}
+            result = {'choices': [{'finish_reason': 'stop', 'message': {'content': '模型服务连接成功'}}]}
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
@@ -233,21 +241,49 @@ def test_real_http_streaming_model_protocol(model_server):
     assert chunks == ['模型服务', '流式连接成功']
 
 
-def test_mp4_to_audio_to_transcript(tmp_path, model_server):
+def test_mp4_to_audio_to_local_transcript(tmp_path):
     video = tmp_path / 'test.mp4'
     folder = tmp_path / 'audio'
     folder.mkdir()
     ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
     subprocess.run([ffmpeg, '-y', '-f', 'lavfi', '-i', 'color=c=black:s=64x64:d=1', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1', '-shortest', '-c:v', 'libx264', '-c:a', 'aac', str(video)], check=True, capture_output=True)
-    config = {**store.settings(True), 'base_url': model_server}
-    transcript, duration = media.transcribe(video, folder, config, 'test-job')
+    config = store.settings(True)
+    result = {'text': '这是从视频声音得到的字幕。', 'segments': [{'start': .2, 'text': '这是从视频声音得到的字幕。'}]}
+    with patch.object(media, '_prepare_local_model', return_value=tmp_path / 'model') as prepare, \
+         patch.object(media, '_recognize', return_value=result) as recognize:
+        transcript, duration = media.transcribe(video, folder, config, 'test-job')
+    prepare.assert_called_once_with(config['transcription_model'], 'test-job')
+    recognize.assert_called_once()
     assert '从视频声音得到的字幕' in transcript
+    assert transcript.startswith('[00:00:00]')
     assert .9 < duration < 1.2
     assert len(list(folder.glob('*.wav'))) == 1
 
 
+def test_local_transcript_renders_absolute_timestamps():
+    result = {'segments': [{'start': 2.4, 'text': ' 第一段 '}, {'start': 65.6, 'text': '第二段'}]}
+    assert media._render_result(result, 600) == '[00:10:02] 第一段\n[00:11:06] 第二段'
+
+
+def test_local_transcript_groups_short_segments_into_20_to_30_seconds():
+    result = {'segments': [
+        {'start': 0, 'end': 7, 'text': '咱们开始今天上课啊，'},
+        {'start': 7, 'end': 15, 'text': '今天是第四节课，，，'},
+        {'start': 15, 'end': 23, 'text': '昨天大部分同学已经定完项目。'},
+        {'start': 23, 'end': 30, 'text': '然后我再稍微说一下，'},
+        {'start': 30, 'end': 39, 'text': '我们定义的是后续要包装的软件。'},
+        {'start': 39, 'end': 47, 'text': '先找现有存在的功能。'},
+    ]}
+    rendered = media._render_result(result, 0)
+    assert rendered.splitlines() == [
+        '[00:00:00] 咱们开始今天上课啊，今天是第四节课，昨天大部分同学已经定完项目。',
+        '[00:00:23] 然后我再稍微说一下，我们定义的是后续要包装的软件。先找现有存在的功能。',
+    ]
+
+
 def test_length_finish_reason_is_not_saved():
     response = httpx.Response(200, json={'choices': [{'finish_reason': 'length', 'message': {'content': '# 不完整内容'}}]})
-    with patch.object(httpx.Client, 'post', return_value=response):
+    with patch.object(httpx.Client, 'post', return_value=response) as post:
         with pytest.raises(ValueError, match='长度上限'):
             ai.completion([{'role': 'user', 'content': 'generate'}], {**store.settings(True), 'model': 'test'})
+    assert 'max_tokens' not in post.call_args.kwargs['json']
