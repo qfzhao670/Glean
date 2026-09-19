@@ -291,3 +291,146 @@
   .app-shell.note-focus .inline-note-title,.app-shell.note-focus .inline-note-title-input{font-size:22px}
   .app-shell.note-focus .note-document .markdown{font-size:15px;line-height:1.8}
 }
+
+/* 2026 shanshui theme */
+:root{--paper:#f8f9f6;--ink:#123d31;--jade:#315f49;--mist:#e8eee8;--card:#fbfcf9d9}
+body{background:#edf1ed;color:#31493f}
+.app-shell{background:var(--paper)}
+.sidebar{width:244px;padding:0 30px;background:linear-gradient(180deg,#f3f5f1 0%,#f7f8f5 100%);border-color:#dde4de}
+.window-space{height:68px}
+.brand{padding:0 10px;color:#143e31;gap:13px}
+.brand>span{font-size:29px;letter-spacing:5px}
+.brand small{margin-top:7px;font-size:12px;color:#455f56}
+.sidebar-caption{margin:25px 0 28px 12px;font:13px/1.8 var(--serif);color:#61746c;letter-spacing:.8px}
+.new-note-button{height:49px;border-radius:7px;padding:0 16px;font-size:14px;background:linear-gradient(135deg,#173e32,#2f5b47);box-shadow:0 8px 22px #14382c24}
+.sidebar nav{margin-top:22px;gap:8px}
+.sidebar nav>button{height:48px;padding:0 15px;font-size:14px;color:#5c7168}
+.sidebar nav>button.active{background:#e5ebe3;color:#173f31}
+.sidebar-bottom{position:relative}
+.sidebar-bottom:before{content:'';position:absolute;inset:-210px -30px 110px;pointer-events:none;background:url('./assets/ink-landscape.png') left bottom/780px auto no-repeat;opacity:.45;mix-blend-mode:multiply}
+.sidebar-bottom>*{position:relative}
+.sidebar-quote{padding:20px 12px 25px;color:#53705f}
+.sidebar-quote p{font-size:13px;line-height:2;color:#526b5d}
+.sidebar-quote>span{font-size:10px}
+.sidebar-settings{font-size:13px;color:#536d62}
+.vault-indicator{font-size:11px;color:#466256}
+.main-shell{margin-left:244px;width:calc(100% - 244px);background:#fafbf8}
+.topbar{height:78px;padding:0 40px;background:#f8faf7e8;backdrop-filter:blur(14px);border-color:#e1e6e1}
+.breadcrumb{font-size:13px;color:#74827b}
+.breadcrumb strong{color:#263e35}
+.task-indicator{font-size:12px}
+.profile{width:35px;height:35px;font-size:15px;background:#edf2eb}
+
+.dashboard{position:relative;display:block;max-width:none;min-height:calc(100vh - 78px);height:auto!important;padding:32px 40px 28px;overflow:hidden;background:linear-gradient(180deg,#fbfcf9 0%,#f9faf7 100%)}
+.dashboard:before{content:'';position:absolute;z-index:0;left:0;right:0;top:0;height:535px;background:url('./assets/ink-landscape.png') center bottom/cover no-repeat;opacity:.46;mix-blend-mode:multiply;pointer-events:none}
+.dashboard>*{position:relative;z-index:1}
+.home-topline{height:28px;font-size:13px;color:#526d60}
+.home-topline>span{gap:10px}
+.home-topline>span svg{color:#2d6047}
+.home-topline time{font-size:12px;color:#72827a}
+.hero{display:grid;grid-template-columns:minmax(420px,.95fr) minmax(400px,1.05fr);gap:0;height:425px;min-height:425px!important;align-items:center}
+.hero-copy{padding:22px 0 12px 2px!important}
+.hero h1{font:500 clamp(39px,3.2vw,53px)/1.32 var(--serif)!important;color:#143f32;letter-spacing:3px}
+.hero-description{font-size:14px!important;line-height:1.85!important;margin-top:13px!important;color:#63766e;letter-spacing:.5px}
+.hero-stats{margin:24px 0 22px!important;gap:0!important}
+.hero-stats>div{position:relative;min-width:148px;padding-right:25px;margin-right:25px}
+.hero-stats>div:not(:last-child):after{content:'';position:absolute;right:0;top:2px;width:1px;height:58px;background:#dfe5df}
+.hero-stats strong{font-size:37px!important;color:#173f31;letter-spacing:1px}
+.hero-stats strong>span{font-size:12px;margin-left:8px;color:#60746a}
+.hero-stats p{font-size:12px!important;margin-top:10px;color:#5c7066}
+.hero-cta{width:278px;height:50px;padding:0 18px;border-radius:7px;font-size:14px;background:linear-gradient(135deg,#143d31,#2a5944);box-shadow:0 8px 25px #1d46351f}
+.hero-footnote{font-size:11px;margin-top:13px;color:#77877f;letter-spacing:.4px}
+.garden{position:relative;height:100%;display:flex!important;align-items:center!important;justify-content:center!important;overflow:visible}
+.spirit-bottle{position:absolute;width:min(390px,42vw);height:min(390px,42vw);object-fit:contain;top:2px;left:35%;transform:translateX(-50%);filter:drop-shadow(0 20px 35px #7aa66430);animation:spirit-hover 7s ease-in-out infinite}
+.garden:after{content:'';position:absolute;left:16%;right:16%;bottom:54px;height:18px;border-radius:50%;background:radial-gradient(ellipse,#74a56a42 0%,transparent 70%);filter:blur(5px)}
+.spirit-message{position:absolute;right:8%;top:164px;width:172px;padding:17px 20px;border:1px solid #e2e7e1;border-radius:10px;background:#f8faf6aa;backdrop-filter:blur(6px);box-shadow:0 10px 30px #3859430a}
+.spirit-message strong{font:16px var(--serif);color:#294a3c}
+.spirit-message span{display:block;margin-top:10px;font-size:12px;line-height:1.7;color:#718077}
+.spirit-progress{position:absolute;left:4%;right:34%;bottom:43px;display:flex;align-items:center;gap:10px}
+.spirit-progress>div{height:16px;flex:1;padding:3px;border-radius:10px;background:#d9e6d8aa}
+.spirit-progress i{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,#6ba071,#7dc57f);box-shadow:0 0 14px #76b97780}
+.spirit-progress span{font:11px Georgia,serif;color:#6b806f}
+.garden>p{position:absolute;left:35%;bottom:13px;transform:translateX(-50%);font:13px var(--serif);color:#3f5c50;letter-spacing:.5px;white-space:nowrap}
+.hero-verse{position:absolute;right:3px;top:23px;font-family:var(--serif);color:#183e32;text-align:left}
+.hero-verse strong{font-size:21px;line-height:1.65;font-weight:500;letter-spacing:2px}
+.hero-verse span{display:block;margin-top:5px;font-size:11px;color:#718078}
+
+.cultivation-grid{display:grid;grid-template-columns:1.06fr 1.22fr .92fr;gap:18px;margin-top:8px}
+.dashboard-card{min-width:0;height:252px;padding:18px 23px;border:1px solid #e0e6e0;border-radius:11px;background:linear-gradient(145deg,#fcfdfaeF,#f8faf6dc);box-shadow:0 5px 22px #23453209;overflow:hidden}
+.dashboard-card>header,.recent-notes>header{display:flex;align-items:center;justify-content:space-between}
+.dashboard-card h2,.recent-notes h2{display:flex;align-items:center;gap:10px;font:500 16px var(--serif);color:#173f32;letter-spacing:.5px}
+.dashboard-card header>button,.dashboard-card header>span,.recent-notes header>button{display:flex;align-items:center;gap:4px;font-size:11px;color:#687b71}
+.practice-list{margin-top:13px}
+.practice-list>button{width:100%;height:34px;display:flex;align-items:center;gap:10px;text-align:left;border-bottom:1px solid #e7ebe7;font-size:12px;color:#344d43}
+.practice-list>button i{width:17px;height:17px;display:grid;place-items:center;border:1px solid #b8c6bd;border-radius:4px;color:white;font-style:normal}
+.practice-list>button.done i{background:#2c6049;border-color:#2c6049}
+.practice-list>button.done span{text-decoration:line-through;color:#809087}
+.practice-list>button time{margin-left:auto;color:#8c9992;font-size:10px}
+.daily-practice>p{margin-top:12px;font:11px var(--serif);color:#7a8982}
+.practice-trail .activity-calendar{margin-top:18px}
+.practice-trail .activity-months{margin-left:18px;font-size:9px;gap:3px}
+.practice-trail .activity-chart{margin-top:5px;gap:8px}
+.practice-trail .heatmap{gap:4px}
+.practice-trail .heat-cell{height:13px;border-radius:3px}
+.practice-trail footer{display:flex;align-items:end;justify-content:space-between;margin-top:14px;font:10px var(--serif);color:#7b8a83}
+.practice-trail footer strong{font:30px Georgia,serif;color:#224b3a}
+.practice-trail footer small{font:10px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:#687a70}
+.inspiration-card{position:relative;background:linear-gradient(150deg,#fbfcf9e8,#f6f8f5dc),url('./assets/ink-landscape.png') 68% bottom/auto 72% no-repeat}
+.inspiration-card blockquote{margin:31px 13px 0;font:17px/1.9 var(--serif);color:#2e4d40;letter-spacing:1px}
+.inspiration-card cite{display:block;margin:11px 17px 0;text-align:right;font:12px var(--serif);color:#64776d}
+.recent-notes{margin-top:18px}
+.recent-notes>header{height:31px}
+.recent-note-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:10px}
+.recent-note-grid>button{height:72px;min-width:0;display:flex;align-items:center;gap:13px;padding:12px 13px;border:1px solid #e1e6e1;border-radius:8px;background:#fcfdfae6;text-align:left;color:#496157;transition:.2s ease}
+.recent-note-grid>button:hover{transform:translateY(-2px);border-color:#a9baaf;box-shadow:0 8px 20px #2345320d}
+.recent-note-grid>button>svg{padding:6px;width:34px;height:34px;border:1px solid #cdd7cf;border-radius:5px;color:#426552}
+.recent-note-grid>button>span{min-width:0;display:flex;flex-direction:column;gap:6px;flex:1}
+.recent-note-grid strong{font-size:12px;font-weight:500;color:#2d453b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recent-note-grid small{font-size:10px;color:#8a9890}
+.recent-note-grid em{padding:4px 7px;border-radius:4px;background:#e9eee9;font-size:10px;font-style:normal;color:#66786e}
+.recent-empty{height:72px;margin-top:10px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border:1px dashed #bdc9c1;border-radius:8px;color:#61766b}
+@keyframes spirit-hover{50%{transform:translate(-50%,-7px) rotate(1deg)}}
+
+/* Notes library follows the same paper-and-ink system. */
+.library{position:relative;max-width:none;min-height:calc(100vh - 78px);padding:36px 38px 44px;background:#fbfcf9 url('./assets/ink-landscape.png') center -270px/cover no-repeat}
+.library:before{content:'';position:absolute;inset:0;background:linear-gradient(#fafbf7b8 0 300px,#fafbf7f8 430px);pointer-events:none}
+.library>*{position:relative}
+.library-heading{min-height:180px;align-items:flex-start;margin-bottom:14px}
+.library-heading .section-kicker{font-size:12px;color:#73827a}
+.library-heading h1{font-size:45px;line-height:1.35;margin-top:18px;color:#153f32}
+.library-heading p{font-size:13px;color:#74837b}
+.library-heading .library-actions{margin-left:auto;margin-top:2px}
+.library-heading .button{height:46px;padding:0 20px;background:#fbfcf9d9;border-color:#d5ddd6;color:#365748;font-size:13px;backdrop-filter:blur(5px)}
+.library-heading .button.primary{background:linear-gradient(135deg,#173f32,#315d49);color:#fff;border-color:#244c3b}
+.library-verse{position:absolute;right:4px;top:77px;font:19px/1.65 var(--serif);color:#29493d;letter-spacing:1px}
+.library-verse i{display:inline-grid;place-items:center;margin-left:12px;width:22px;height:22px;border:1px solid #a85f52;color:#a85f52;font-size:10px;font-style:normal}
+.library-controls{height:53px;padding:0 4px 12px;border-color:#dce3dd}
+.filter-tabs{gap:25px}
+.filter-tabs>button{font-size:13px;padding:9px 3px}
+.search-field{width:295px;background:#fff9}
+.search-field input{font-size:12px}
+.note-grid{gap:18px;margin-top:18px}
+.note-card{min-height:258px;padding:18px 20px;border-color:#dfe5df;border-radius:9px;background:#fbfcf9dc;box-shadow:0 5px 20px #24423108}
+.note-card:hover{border-color:#9eafa4;box-shadow:0 10px 28px #24423110}
+.note-card h2{font-size:18px;line-height:1.5;margin:13px 0 8px;color:#182e26}
+.note-card>p{height:60px;font-size:11px;line-height:1.8;color:#78867f}
+.note-card footer{margin-top:14px;padding-top:12px}
+.note-file-icon{width:36px;height:36px;color:#55725f;border-color:#d4ddd6}
+.new-note-tile{min-height:258px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid #dfe5df;border-radius:9px;background:linear-gradient(150deg,#fbfcf9e8,#f6f8f5e8),url('./assets/ink-landscape.png') right bottom/160% auto no-repeat;color:#466257}
+.new-note-tile>span{display:grid;place-items:center;width:35px;height:35px;border:1px solid #b9c8be;border-radius:50%;background:#eef3ed}
+.new-note-tile strong{margin-top:12px;font:15px var(--serif);color:#24483a}
+.new-note-tile p{margin-top:9px;font:11px/1.8 var(--serif);color:#75857d}
+
+@media(max-width:1250px){
+  .hero{grid-template-columns:.95fr 1.05fr}.hero-verse{display:none}.spirit-message{right:-5px;width:150px}.hero-stats>div{min-width:118px;margin-right:16px;padding-right:16px}
+  .cultivation-grid{grid-template-columns:1fr 1.2fr}.inspiration-card{display:none}.recent-note-grid{grid-template-columns:repeat(3,1fr)}
+  .library-verse{display:none}.library-heading{min-height:155px}
+}
+@media(max-width:950px){
+  .dashboard{padding:25px}.hero{height:auto;grid-template-columns:1fr;min-height:0!important}.garden{height:390px!important}.cultivation-grid{grid-template-columns:1fr}.dashboard-card{height:auto;min-height:230px}.inspiration-card{display:block}.recent-note-grid{grid-template-columns:repeat(2,1fr)}
+  .library-heading{flex-wrap:wrap}.library-heading .library-actions{margin:12px 0 0}.note-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:680px){
+  .sidebar{width:63px;padding:0 9px}.brand>span,.sidebar-caption,.new-note-button>span,.sidebar-quote,.vault-indicator>span,.sidebar nav>button>span{display:none}.brand{padding:0 6px}.new-note-button{width:45px;justify-content:center;padding:0}.main-shell{margin-left:63px;width:calc(100% - 63px)}.topbar{padding:0 18px}
+  .dashboard{padding:20px 18px}.hero h1{font-size:34px!important}.hero-stats{flex-wrap:wrap}.spirit-bottle{left:50%;width:330px;height:330px}.spirit-progress{left:15%;right:15%}.garden>p{left:50%}.spirit-message{display:none}.recent-note-grid{grid-template-columns:1fr}.library{padding:28px 18px}.library-heading h1{font-size:36px}.library-actions{width:100%}.library-heading .button{flex:1;padding:0 8px}.library-controls{height:auto}.search-field{width:100%}.note-grid{grid-template-columns:1fr}
+}
