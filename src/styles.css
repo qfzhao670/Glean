@@ -341,14 +341,7 @@ body{background:#edf1ed;color:#31493f}
 .hero-cta{width:278px;height:50px;padding:0 18px;border-radius:7px;font-size:14px;background:linear-gradient(135deg,#143d31,#2a5944);box-shadow:0 8px 25px #1d46351f}
 .hero-footnote{font-size:11px;margin-top:13px;color:#77877f;letter-spacing:.4px}
 .garden{position:relative;height:100%;display:flex!important;align-items:center!important;justify-content:center!important;overflow:visible}
-.spirit-vessel-stage{position:absolute;z-index:1;width:min(390px,42vw);height:min(390px,42vw);top:-30px;left:35%;transform:translateX(-50%);animation:spirit-hover 7s ease-in-out infinite;isolation:isolate}
-.spirit-vessel-stage:before{content:'';position:absolute;z-index:0;inset:19% 13% 5%;border-radius:50%;background:radial-gradient(circle at 44% 42%,#f5ffd9a8 0 6%,#d9ff8b60 16%,#a8db6b20 43%,transparent 72%);filter:blur(11px);mix-blend-mode:screen;animation:spirit-aura 5.8s ease-in-out infinite}
-.spirit-vessel-stage:after{content:'';position:absolute;z-index:3;left:31%;top:42%;width:29%;height:38%;border-radius:50%;background:radial-gradient(ellipse,#f4ffdca8 0%,#d8ff8338 38%,transparent 72%);filter:blur(8px);mix-blend-mode:screen;animation:spirit-core 5.8s ease-in-out infinite}
-.spirit-bottle{position:absolute;z-index:2;inset:0;width:100%;height:100%;filter:drop-shadow(0 20px 35px #7aa66430);animation:bottle-charge 5.8s ease-in-out infinite}
-.spirit-bottle img{display:block;width:100%;height:100%;object-fit:contain}
-.spirit-ripples{position:absolute;z-index:0;left:35%;bottom:56px;width:min(235px,27vw);height:38px;transform:translateX(-50%);pointer-events:none}
-.spirit-ripples i{position:absolute;inset:50% 0 auto;height:16px;border:1px solid #b9e67a80;border-radius:50%;opacity:0;transform:translateY(-50%) scale(.28);animation:spirit-ripple 5.8s ease-out infinite}
-.spirit-ripples i:nth-child(2){animation-delay:1.75s}.spirit-ripples i:nth-child(3){animation-delay:3.5s}
+.spirit-bottle{position:absolute;width:min(390px,42vw);height:min(390px,42vw);object-fit:contain;top:2px;left:35%;transform:translateX(-50%);filter:drop-shadow(0 20px 35px #7aa66430);animation:spirit-hover 7s ease-in-out infinite}
 .garden:after{content:'';position:absolute;left:16%;right:16%;bottom:54px;height:18px;border-radius:50%;background:radial-gradient(ellipse,#74a56a42 0%,transparent 70%);filter:blur(5px)}
 .spirit-message{position:absolute;right:8%;top:164px;width:172px;padding:17px 20px;border:1px solid #e2e7e1;border-radius:10px;background:#f8faf6aa;backdrop-filter:blur(6px);box-shadow:0 10px 30px #3859430a}
 .spirit-message strong{font:16px var(--serif);color:#294a3c}
@@ -397,10 +390,6 @@ body{background:#edf1ed;color:#31493f}
 .recent-note-grid em{padding:4px 7px;border-radius:4px;background:#e9eee9;font-size:10px;font-style:normal;color:#66786e}
 .recent-empty{height:72px;margin-top:10px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border:1px dashed #bdc9c1;border-radius:8px;color:#61766b}
 @keyframes spirit-hover{50%{transform:translate(-50%,-7px) rotate(1deg)}}
-@keyframes spirit-aura{0%,100%{opacity:.35;transform:scale(.94)}52%{opacity:1;transform:scale(1.08)}72%{opacity:.5;transform:scale(.98)}}
-@keyframes spirit-core{0%,36%,100%{opacity:.18;transform:scale(.88)}58%{opacity:.9;transform:scale(1.08)}78%{opacity:.38;transform:scale(.96)}}
-@keyframes bottle-charge{0%,35%,100%{filter:drop-shadow(0 20px 35px #7aa66430) brightness(1)}56%{filter:drop-shadow(0 15px 30px #b9ed6e72) brightness(1.12)}74%{filter:drop-shadow(0 20px 37px #89bd5e48) brightness(1.04)}}
-@keyframes spirit-ripple{0%{opacity:0;transform:translateY(-50%) scale(.28)}13%{opacity:.58}48%{opacity:0;transform:translateY(-50%) scale(1)}}
 
 /* Notes library follows the same paper-and-ink system. */
 .library{position:relative;max-width:none;min-height:calc(100vh - 78px);padding:36px 38px 44px;background:#fbfcf9 url('./assets/ink-landscape.png') center -270px/cover no-repeat}
@@ -443,5 +432,5 @@ body{background:#edf1ed;color:#31493f}
 }
 @media(max-width:680px){
   .sidebar{width:63px;padding:0 9px}.brand>span,.sidebar-caption,.new-note-button>span,.sidebar-quote,.vault-indicator>span,.sidebar nav>button>span{display:none}.brand{padding:0 6px}.new-note-button{width:45px;justify-content:center;padding:0}.main-shell{margin-left:63px;width:calc(100% - 63px)}.topbar{padding:0 18px}
-  .dashboard{padding:20px 18px}.hero h1{font-size:34px!important}.hero-stats{flex-wrap:wrap}.spirit-vessel-stage{left:50%;width:330px;height:330px}.spirit-ripples{left:50%;width:210px}.spirit-progress{left:15%;right:15%}.garden>p{left:50%}.spirit-message{display:none}.recent-note-grid{grid-template-columns:1fr}.library{padding:28px 18px}.library-heading h1{font-size:36px}.library-actions{width:100%}.library-heading .button{flex:1;padding:0 8px}.library-controls{height:auto}.search-field{width:100%}.note-grid{grid-template-columns:1fr}
+  .dashboard{padding:20px 18px}.hero h1{font-size:34px!important}.hero-stats{flex-wrap:wrap}.spirit-bottle{left:50%;width:330px;height:330px}.spirit-progress{left:15%;right:15%}.garden>p{left:50%}.spirit-message{display:none}.recent-note-grid{grid-template-columns:1fr}.library{padding:28px 18px}.library-heading h1{font-size:36px}.library-actions{width:100%}.library-heading .button{flex:1;padding:0 8px}.library-controls{height:auto}.search-field{width:100%}.note-grid{grid-template-columns:1fr}
 }
