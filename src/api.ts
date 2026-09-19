@@ -14,6 +14,74 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   return response.json();
 }
 export const post = <T,>(path: string, body?: unknown) => api<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
+export function uploadJob(file: File, detailed: boolean, onProgress: (progress: number) => void): Promise<{ id: string }> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('POST', baseUrl + '/api/jobs/upload');
+    request.setRequestHeader('X-Glean-Token', token);
+    request.upload.onprogress = event => {
+      if (event.lengthComputable) onProgress(Math.min(99, Math.round(event.loaded / event.total * 100)));
+    };
+    request.onerror = () => reject(new Error('上传中断，请检查连接后重试。'));
+    request.onload = () => {
+      let value: { id?: string; detail?: string } = {};
+      try { value = JSON.parse(request.responseText || '{}'); } catch { /* handled below */ }
+      if (request.status >= 200 && request.status < 300 && value.id) { onProgress(100); resolve({ id: value.id }); }
+      else reject(new Error(typeof value.detail === 'string' ? value.detail : '上传未完成，请重试。'));
+    };
+    const form = new FormData();
+    form.append('file', file);
+    form.append('detailed', String(detailed));
+    request.send(form);
+  });
+}
+
+export async function streamJobUpdates(id: string, onJob: (job: Job) => void, signal: AbortSignal) {
+  const response = await fetch(baseUrl + `/api/jobs/${id}/stream`, {
+    headers: { 'X-Glean-Token': token }, signal,
+  });
+  if (!response.ok || !response.body) throw new Error('无法接收任务进度。');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    const lines = buffer.split('\n');
+    buffer = done ? '' : lines.pop() || '';
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const event = JSON.parse(line) as { type: string; job?: Job };
+      if (event.type === 'job' && event.job) onJob(event.job);
+    }
+    if (done) break;
+  }
+}
+
+export type JobOutputEvent =
+  | { type: 'job'; job: Job }
+  | { type: 'snapshot' | 'delta'; content: string }
+  | { type: 'done'; note_id: string; message: string }
+  | { type: 'failed'; note_id: string; message: string }
+  | { type: 'error'; message: string };
+
+export async function streamJobOutput(id: string, onEvent: (event: JobOutputEvent) => void, signal: AbortSignal) {
+  const response = await fetch(baseUrl + `/api/jobs/${id}/output/stream`, {
+    headers: { 'X-Glean-Token': token }, signal,
+  });
+  if (!response.ok || !response.body) throw new Error('无法接收笔记生成内容。');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    const lines = buffer.split('\n');
+    buffer = done ? '' : lines.pop() || '';
+    for (const line of lines) if (line.trim()) onEvent(JSON.parse(line) as JobOutputEvent);
+    if (done) break;
+  }
+}
 export async function streamJsonLines<T>(path: string, body: unknown, onEvent: (event: T) => void) {
   const response = await fetch(baseUrl + '/api' + path, {
     method: 'POST', body: JSON.stringify(body),

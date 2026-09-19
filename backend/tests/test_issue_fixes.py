@@ -58,3 +58,19 @@ def test_chat_stream_emits_deltas_then_persists_completed_answer(client):
     messages = events[-1]['note']['messages']
     assert [(message['role'], message['content']) for message in messages] == [('user', '请解释'), ('assistant', '第一段第二段')]
     assert response.headers['Cache-Control'] == 'no-store'
+
+
+def test_completed_job_output_stream_returns_draft_and_final_note_id(client):
+    from glean import service
+    with patch.object(service.EXECUTOR, 'submit'):
+        job_id = service.new_job('curate', '流式草稿', {'content': '# 原文'})
+    folder = store.DATA / 'jobs' / job_id
+    folder.mkdir(parents=True)
+    (folder / 'draft.md').write_text('# 流式草稿\n\n正在生成的正文')
+    store.update_job(job_id, status='completed', stage='已保存', progress=100, note_id='final-note')
+    response = client.get(f'/api/jobs/{job_id}/output/stream')
+    events = [json.loads(line) for line in response.text.splitlines()]
+    assert [event['type'] for event in events] == ['job', 'snapshot', 'done']
+    assert events[1]['content'].endswith('正在生成的正文')
+    assert events[2]['note_id'] == 'final-note'
+    assert response.headers['Cache-Control'] == 'no-store'

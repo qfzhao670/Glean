@@ -6,11 +6,13 @@ import re
 import secrets
 import shutil
 import calendar
+import asyncio
+import hashlib
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -84,6 +86,7 @@ class JobInput(BaseModel):
     title: str = Field(default='新笔记', max_length=160)
     content: str = Field(default='', max_length=2_000_000)
     note_id: str = ''
+    detailed: bool = False
 
 
 class ChatInput(BaseModel):
@@ -327,7 +330,7 @@ def create_job(value: JobInput):
 
 
 @app.post('/api/jobs/upload')
-async def upload(file: UploadFile = File(...)):
+async def upload(file: UploadFile = File(...), detailed: bool = Form(False)):
     filename = re.split(r'[/\\]', file.filename or '')[-1]
     suffix = Path(filename).suffix.lower()
     if suffix not in ('.txt', '.mp4'):
@@ -338,6 +341,7 @@ async def upload(file: UploadFile = File(...)):
     folder.mkdir(exist_ok=True)
     target = folder / (store.uid() + suffix)
     total = 0
+    digest = hashlib.sha256()
     try:
         with target.open('wb') as output:
             while data := await file.read(1024 * 1024):
@@ -345,13 +349,89 @@ async def upload(file: UploadFile = File(...)):
                 if total > limit:
                     raise ValueError('字幕文件超过 20 MB，请拆分后重试。' if kind == 'txt' else '视频超过 4 GB，请先压缩或分段。')
                 output.write(data)
+                digest.update(data)
         title = Path(filename).stem.strip() or ('字幕笔记' if kind == 'txt' else '视频笔记')
-        return {'id': service.new_job(kind, title, {'path': str(target), 'source': filename})}
+        return {'id': service.new_job(kind, title, {
+            'path': str(target), 'source': filename, 'content_hash': digest.hexdigest(), 'detailed': detailed,
+        })}
     except Exception:
         target.unlink(missing_ok=True)
         raise
     finally:
         await file.close()
+
+
+@app.get('/api/jobs/{job_id}/stream')
+async def stream_job(job_id: str, request: Request):
+    if not store.one('SELECT id FROM jobs WHERE id=?', (job_id,)):
+        raise HTTPException(404, '任务不存在')
+
+    async def generate():
+        previous = None
+        while not await request.is_disconnected():
+            current = store.one(
+                'SELECT id,status,stage,progress,title,kind,error,note_id,created_at FROM jobs WHERE id=?',
+                (job_id,),
+            )
+            if current is None:
+                yield json.dumps({'type': 'error', 'message': '任务不存在'}, ensure_ascii=False) + '\n'
+                return
+            serialized = json.dumps(current, ensure_ascii=False, sort_keys=True)
+            if serialized != previous:
+                yield json.dumps({'type': 'job', 'job': current}, ensure_ascii=False) + '\n'
+                previous = serialized
+            if current['status'] in ('completed', 'failed'):
+                return
+            await asyncio.sleep(0.35)
+
+    return StreamingResponse(generate(), media_type='application/x-ndjson', headers={
+        'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no', 'X-Content-Type-Options': 'nosniff',
+    })
+
+
+@app.get('/api/jobs/{job_id}/output/stream')
+async def stream_job_output(job_id: str, request: Request):
+    if not store.one('SELECT id FROM jobs WHERE id=?', (job_id,)):
+        raise HTTPException(404, '任务不存在')
+    draft = store.DATA / 'jobs' / job_id / 'draft.md'
+
+    async def generate():
+        previous_content = None
+        previous_job = None
+        while not await request.is_disconnected():
+            current = store.one(
+                'SELECT id,status,stage,progress,title,kind,error,note_id,created_at FROM jobs WHERE id=?',
+                (job_id,),
+            )
+            if current is None:
+                yield json.dumps({'type': 'error', 'message': '任务不存在'}, ensure_ascii=False) + '\n'
+                return
+            serialized = json.dumps(current, ensure_ascii=False, sort_keys=True)
+            if serialized != previous_job:
+                yield json.dumps({'type': 'job', 'job': current}, ensure_ascii=False) + '\n'
+                previous_job = serialized
+            if draft.is_file():
+                try:
+                    content = draft.read_text(encoding='utf-8')
+                except (OSError, UnicodeDecodeError):
+                    content = previous_content
+                if content is not None and content != previous_content:
+                    if previous_content is not None and content.startswith(previous_content):
+                        yield json.dumps({'type': 'delta', 'content': content[len(previous_content):]}, ensure_ascii=False) + '\n'
+                    else:
+                        yield json.dumps({'type': 'snapshot', 'content': content}, ensure_ascii=False) + '\n'
+                    previous_content = content
+            if current['status'] in ('completed', 'failed'):
+                yield json.dumps({
+                    'type': 'done' if current['status'] == 'completed' else 'failed',
+                    'note_id': current['note_id'], 'message': current['error'],
+                }, ensure_ascii=False) + '\n'
+                return
+            await asyncio.sleep(0.1)
+
+    return StreamingResponse(generate(), media_type='application/x-ndjson', headers={
+        'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no', 'X-Content-Type-Options': 'nosniff',
+    })
 
 
 @app.post('/api/jobs/{job_id}/retry')
@@ -360,6 +440,7 @@ def retry(job_id: str):
         updated = c.execute("UPDATE jobs SET status='queued',error='',stage='等待重试' WHERE id=? AND status='failed'", (job_id,))
         if updated.rowcount != 1:
             raise ValueError('仅失败的任务可以重试。')
+    (store.DATA / 'jobs' / job_id / 'draft.md').unlink(missing_ok=True)
     service.EXECUTOR.submit(service.run_job, job_id)
     return {'ok': True}
 

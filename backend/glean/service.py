@@ -2,12 +2,49 @@ from __future__ import annotations
 
 import json
 import re
+import hashlib
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from . import ai, media, store
 
 EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix='glean-jobs')
+
+
+def _transcript_cache_path(payload, config):
+    content_hash = payload.get('content_hash', '')
+    if not re.fullmatch(r'[0-9a-f]{64}', content_hash):
+        return None
+    identity = json.dumps({
+        'version': 1,
+        'content_hash': content_hash,
+        'model': config['transcription_model'],
+        'language': config.get('transcription_language', 'auto'),
+    }, sort_keys=True).encode()
+    folder = store.DATA / 'transcript-cache'
+    folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+    return folder / (hashlib.sha256(identity).hexdigest() + '.json')
+
+
+def _read_transcript_cache(path):
+    if path is None or not path.is_file():
+        return None
+    try:
+        cached = json.loads(path.read_text())
+        if not isinstance(cached.get('text'), str) or not cached['text'].strip():
+            return None
+        duration = float(cached.get('duration', 0))
+        return cached['text'], duration
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return None
+
+
+def _write_transcript_cache(path, text, duration):
+    if path is None:
+        return
+    temporary = path.with_suffix('.tmp')
+    temporary.write_text(json.dumps({'text': text, 'duration': duration}, ensure_ascii=False))
+    temporary.replace(path)
 
 
 def vault_target(relative):
@@ -53,15 +90,24 @@ def run_job(job_id):
     try:
         if not config['model'].strip():
             raise ValueError('请先在设置中填写文本模型名称，然后重试。')
-        store.update_job(job_id, status='running', stage='准备素材', progress=3, error='')
+        store.update_job(job_id, status='running', stage='正在准备素材', progress=3, error='')
         title, source, duration, original = job['title'], payload.get('source') or job['title'], 0, ''
         transcript_cache = folder / 'transcript.json'
+        shared_cache = _transcript_cache_path(payload, config) if job['kind'] == 'mp4' else None
+        reused_transcript = False
         if job['kind'] == 'curate':
             text = payload['content']
             original = text
         elif transcript_cache.exists():
             cached = json.loads(transcript_cache.read_text())
             text, title, duration = cached['text'], cached['title'], cached['duration']
+            reused_transcript = job['kind'] == 'mp4'
+            store.update_job(job_id, stage='继续使用已提取的字幕', progress=34)
+        elif shared := _read_transcript_cache(shared_cache):
+            text, duration = shared
+            reused_transcript = True
+            store.update_job(job_id, stage='已命中字幕缓存，跳过语音识别', progress=34)
+            transcript_cache.write_text(json.dumps({'text': text, 'title': title, 'duration': duration}, ensure_ascii=False))
         else:
             if job['kind'] == 'txt':
                 store.update_job(job_id, stage='读取字幕文件', progress=10)
@@ -71,7 +117,27 @@ def run_job(job_id):
             else:
                 raise ValueError('视频链接导入已停用，请上传 .txt 字幕文件重新创建任务。')
             transcript_cache.write_text(json.dumps({'text': text, 'title': title, 'duration': duration}, ensure_ascii=False))
-        content = ai.generate(text, title, source, job['kind'], job_id, config)
+            if job['kind'] == 'mp4':
+                _write_transcript_cache(shared_cache, text, duration)
+        draft_path = folder / 'draft.md'
+        with draft_path.open('w', encoding='utf-8') as draft:
+            def snapshot(value):
+                draft.seek(0)
+                draft.truncate()
+                draft.write(value)
+                draft.flush()
+
+            def append(value):
+                draft.seek(0, 2)
+                draft.write(value)
+                draft.flush()
+
+            content = ai.generate(
+                text, title, source, job['kind'], job_id, config,
+                detailed=bool(payload.get('detailed')), cached_transcript=reused_transcript,
+                on_snapshot=snapshot, on_delta=append,
+            )
+            snapshot(content)
         # Guard against dropped embedded assets on a curate operation.
         if original:
             embeds = re.findall(r'!\[\[[^\]]+\]\]|!\[[^\]]*\]\([^\)]+\)', original)

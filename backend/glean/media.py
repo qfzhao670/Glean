@@ -223,4 +223,5 @@ def transcribe(path, folder, config, job_id):
         offset += chunk_duration
     if not any(re.sub(r'\[[0-9:]+\]', '', text).strip() for text in transcript):
         raise ValueError('视频中未识别到语音。')
+    store.update_job(job_id, stage=f'字幕提取完成，共 {len(audio)} 段', progress=34)
     return '\n\n'.join(transcript), duration

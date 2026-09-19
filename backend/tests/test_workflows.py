@@ -145,6 +145,64 @@ def test_long_generation_reads_full_source_in_one_call():
         assert result == '# 长课\n\n## 核心知识\n精简的复习要点。'
 
 
+def test_detailed_generation_reads_full_source_for_outline_and_each_semantic_section():
+    store.save_settings({'model': 'test', 'chunk_chars': 2000})
+    text = ''.join(f'[{index:02d}:00:00] 第 {index} 节的重要细节。\n' + ('补充说明。' * 300) for index in range(4))
+    outline = json.dumps({'sections': [
+        {'title': '背景与目标', 'subsections': ['问题背景', '会议目标']},
+        {'title': '方案与结论', 'subsections': ['候选方案', '最终结论']},
+    ]}, ensure_ascii=False)
+    outputs = [outline, '### 问题背景\n\n必须保留的细节 1', '### 候选方案\n\n必须保留的细节 2']
+    with patch.object(ai, 'chunks', side_effect=AssertionError('详细大纲不应按字数切分')), \
+         patch.object(ai, 'completion', side_effect=outputs) as llm:
+        result = ai.generate(text, '长课程', '课程.mp4', 'mp4', 'detail-job', store.settings(True), detailed=True)
+    assert llm.call_count == 3
+    assert result.startswith('# 长课程\n')
+    assert '## 内容大纲' in result
+    assert '1. 背景与目标\n   - 问题背景\n   - 会议目标' in result
+    assert '2. 方案与结论\n   - 候选方案\n   - 最终结论' in result
+    for index in range(1, 3):
+        assert f'必须保留的细节 {index}' in result
+    # The outline call and every chapter-writing call receive the full transcript.
+    assert all(text in call.args[0][1]['content'] for call in llm.call_args_list)
+    assert llm.call_args_list[0].args[2] is None
+    assert store.one('SELECT progress,stage FROM jobs WHERE id=?', ('detail-job',)) is None
+
+
+def test_video_transcript_cache_is_shared_by_content_hash(tmp_path):
+    store.save_settings({'model': 'test'})
+    digest = 'a' * 64
+    first = tmp_path / 'first.mp4'
+    second = tmp_path / 'second.mp4'
+    first.write_bytes(b'same-video')
+    second.write_bytes(b'same-video')
+    with patch.object(service.EXECUTOR, 'submit'):
+        first_id = service.new_job('mp4', '第一次', {'path': str(first), 'source': '课程.mp4', 'content_hash': digest})
+        second_id = service.new_job('mp4', '第二次', {'path': str(second), 'source': '课程副本.mp4', 'content_hash': digest})
+    with patch.object(media, 'transcribe', return_value=('缓存字幕', 120)) as transcribe, \
+         patch.object(ai, 'generate', return_value='# 笔记'):
+        service.run_job(first_id)
+        service.run_job(second_id)
+    transcribe.assert_called_once()
+    second_job = store.one('SELECT * FROM jobs WHERE id=?', (second_id,))
+    second_note = store.one('SELECT * FROM notes WHERE id=?', (second_job['note_id'],))
+    assert second_job['status'] == 'completed'
+    assert second_note['transcript'] == '缓存字幕'
+    assert second_note['source'] == '课程副本.mp4'
+
+
+def test_upload_records_hash_and_detailed_mode(client):
+    with patch.object(service.EXECUTOR, 'submit'):
+        response = client.post('/api/jobs/upload', data={'detailed': 'true'}, files={
+            'file': ('课程.mp4', b'same-video', 'video/mp4'),
+        })
+    assert response.status_code == 200
+    job = store.one('SELECT payload FROM jobs WHERE id=?', (response.json()['id'],))
+    payload = json.loads(job['payload'])
+    assert payload['detailed'] is True
+    assert payload['content_hash'] == '658b8b098537a8c88834f50bda20293eec7bf11829555630a323eba6b5d50402'
+
+
 def test_job_failure_can_retry_and_complete(client):
     with patch.object(service.EXECUTOR, 'submit'):
         response = client.post('/api/jobs', json={'kind': 'curate', 'title': '旧笔记', 'content': '# 旧笔记\n保留例子。'})
@@ -287,3 +345,22 @@ def test_length_finish_reason_is_not_saved():
         with pytest.raises(ValueError, match='长度上限'):
             ai.completion([{'role': 'user', 'content': 'generate'}], {**store.settings(True), 'model': 'test'})
     assert 'max_tokens' not in post.call_args.kwargs['json']
+
+
+def test_agent_stream_continues_after_provider_output_limit_without_setting_max_tokens():
+    calls = []
+    def fake_stream(messages, _config, max_tokens=5000):
+        calls.append((messages, max_tokens))
+        if len(calls) == 1:
+            yield '第一部分。'
+            raise ai.OutputLimitError('服务端截断')
+        yield '第二部分。'
+    deltas = []
+    with patch.object(ai, 'completion_stream', side_effect=fake_stream):
+        result = ai._stream_agent([
+            {'role': 'system', 'content': '规则'}, {'role': 'user', 'content': '字幕'},
+        ], store.settings(True), deltas.append, lambda: None)
+    assert result == '第一部分。第二部分。'
+    assert deltas == ['第一部分。', '第二部分。']
+    assert [maximum for _, maximum in calls] == [None, None]
+    assert calls[1][0][-1]['content'].startswith('刚才的输出被模型服务截断')

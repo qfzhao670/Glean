@@ -73,7 +73,7 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [history, setHistory] = useState(false);
-  const [chatVisible, setChatVisible] = useState(true);
+  const [chatVisible, setChatVisible] = useState(false);
   const [streaming, setStreaming] = useState<{ question: string; answer: string } | null>(null);
   const [chatWidth, setChatWidth] = useState(() => Math.max(280, Math.min(520, Number(localStorage.getItem('glean-chat-width')) || 340)));
   const bottom = useRef<HTMLDivElement>(null);
@@ -203,7 +203,7 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
           if (window.glean) await window.glean.revealNote(id);
           else if (note) { await navigator.clipboard.writeText(note.note_file); notify('笔记文件路径已复制'); }
         })}><FolderOpen size={15}/>{window.glean ? '显示文件' : '复制文件路径'}</button>
-        <button className={`icon-button ${chatVisible ? 'selected' : ''}`} title="知识对话" aria-label="切换知识对话" onClick={() => setChatVisible(!chatVisible)}><MessageCircle size={18}/></button>
+        <button className={`icon-button ${chatVisible ? 'selected' : ''}`} title={chatVisible ? '收起知识对话' : '展开知识对话'} aria-label={chatVisible ? '收起知识对话' : '展开知识对话'} aria-expanded={chatVisible} onClick={() => setChatVisible(!chatVisible)}><MessageCircle size={18}/></button>
       </div>
     </div>
     {error && <div className="error-message" role="alert">{error}</div>}
