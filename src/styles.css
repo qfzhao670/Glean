@@ -341,7 +341,7 @@ body{background:#edf1ed;color:#31493f}
 .hero-cta{width:278px;height:50px;padding:0 18px;border-radius:7px;font-size:14px;background:linear-gradient(135deg,#143d31,#2a5944);box-shadow:0 8px 25px #1d46351f}
 .hero-footnote{font-size:11px;margin-top:13px;color:#77877f;letter-spacing:.4px}
 .garden{position:relative;height:100%;display:flex!important;align-items:center!important;justify-content:center!important;overflow:visible}
-.spirit-bottle{position:absolute;width:min(390px,42vw);height:min(390px,42vw);object-fit:contain;top:2px;left:35%;transform:translateX(-50%);filter:drop-shadow(0 20px 35px #7aa66430);animation:spirit-hover 7s ease-in-out infinite}
+.spirit-bottle{position:absolute;width:min(390px,42vw);height:min(390px,42vw);object-fit:contain;top:2px;left:35%;transform:translateX(-50%);filter:drop-shadow(0 20px 35px #7aa66430) drop-shadow(0 0 5px #8ee8ad24);animation:spirit-hover 7s ease-in-out infinite;will-change:transform,filter}
 .garden:after{content:'';position:absolute;left:16%;right:16%;bottom:54px;height:18px;border-radius:50%;background:radial-gradient(ellipse,#74a56a42 0%,transparent 70%);filter:blur(5px)}
 .spirit-message{position:absolute;right:8%;top:164px;width:172px;padding:17px 20px;border:1px solid #e2e7e1;border-radius:10px;background:#f8faf6aa;backdrop-filter:blur(6px);box-shadow:0 10px 30px #3859430a}
 .spirit-message strong{font:16px var(--serif);color:#294a3c}
@@ -389,7 +389,10 @@ body{background:#edf1ed;color:#31493f}
 .recent-note-grid small{font-size:10px;color:#8a9890}
 .recent-note-grid em{padding:4px 7px;border-radius:4px;background:#e9eee9;font-size:10px;font-style:normal;color:#66786e}
 .recent-empty{height:72px;margin-top:10px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border:1px dashed #bdc9c1;border-radius:8px;color:#61766b}
-@keyframes spirit-hover{50%{transform:translate(-50%,-7px) rotate(1deg)}}
+@keyframes spirit-hover{
+  0%,100%{transform:translateX(-50%);filter:drop-shadow(0 20px 35px #7aa66430) drop-shadow(0 0 5px #8ee8ad24)}
+  50%{transform:translate(-50%,-7px) rotate(1deg);filter:drop-shadow(0 22px 38px #6cad7052) drop-shadow(0 0 18px #70e99a78)}
+}
 
 /* Notes library follows the same paper-and-ink system. */
 .library{position:relative;max-width:none;min-height:calc(100vh - 78px);padding:36px 38px 44px;background:#fbfcf9 url('./assets/ink-landscape.png') center -270px/cover no-repeat}
