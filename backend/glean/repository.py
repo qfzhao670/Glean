@@ -8,6 +8,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
+IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
+
 
 def root(path):
     target = Path(path).expanduser()
@@ -86,3 +88,65 @@ def remove(folder, current, expected):
         target.unlink()
     except (OSError, UnicodeError) as exc:
         raise ValueError(f'无法从笔记仓库 {folder} 删除文件，请检查文件夹权限。') from exc
+
+
+def _asset_path(folder, note_id, filename):
+    folder = root(folder)
+    if not re.fullmatch(r'[0-9a-f]{32}', note_id) or not re.fullmatch(r'[0-9a-f]{32}\.(?:png|jpe?g|gif|webp)', filename):
+        raise ValueError('图片路径无效。')
+    asset_root = folder / 'assets'
+    if asset_root.is_symlink() or (asset_root.exists() and not asset_root.resolve().is_relative_to(folder)):
+        raise ValueError('图片目录已移出当前仓库。')
+    directory = asset_root / note_id
+    target = directory / filename
+    if directory.is_symlink() or (directory.exists() and not directory.resolve().is_relative_to(folder)):
+        raise ValueError('图片目录已移出当前仓库。')
+    return folder, directory, target
+
+
+def write_asset(folder, note_id, filename, content):
+    """Publish an app-managed pasted image without replacing any existing file."""
+    folder, directory, target = _asset_path(folder, note_id, filename)
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        if directory.is_symlink() or not directory.resolve().is_relative_to(folder):
+            raise ValueError('图片目录已移出当前仓库。')
+        with target.open('xb') as output:
+            output.write(content)
+        return target
+    except FileExistsError as exc:
+        raise ValueError('图片文件名冲突，请重新粘贴。') from exc
+    except ValueError:
+        raise
+    except OSError as exc:
+        target.unlink(missing_ok=True)
+        raise ValueError('无法把图片保存到笔记仓库，请检查文件夹权限和磁盘空间。') from exc
+
+
+def read_asset(folder, note_id, filename):
+    folder, _directory, target = _asset_path(folder, note_id, filename)
+    if target.is_symlink() or not target.is_file() or not target.resolve().is_relative_to(folder):
+        raise ValueError('图片不存在或已移出当前仓库。')
+    return target
+
+
+def copy_assets(source_folder, target_folder):
+    """Carry managed images along when the user changes the repository folder."""
+    source = root(source_folder) / 'assets'
+    target_root = root(target_folder)
+    if not source.exists():
+        return
+    if source.is_symlink() or not source.resolve().is_relative_to(root(source_folder)):
+        raise ValueError('旧仓库的图片目录无效，未切换仓库。')
+    for asset in source.glob('*/*'):
+        if asset.is_symlink() or not asset.is_file() or asset.suffix.lower() not in IMAGE_SUFFIXES:
+            continue
+        note_id, filename = asset.parent.name, asset.name
+        _folder, directory, destination = _asset_path(target_root, note_id, filename)
+        directory.mkdir(parents=True, exist_ok=True)
+        if destination.exists():
+            if destination.read_bytes() != asset.read_bytes():
+                raise ValueError('新仓库中存在同名但内容不同的图片，未切换仓库。')
+            continue
+        with destination.open('xb') as output, asset.open('rb') as source_file:
+            shutil.copyfileobj(source_file, output)

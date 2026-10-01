@@ -159,6 +159,7 @@ def test_connection():
 def stats():
     notes = store.rows('SELECT id,title,content,kind,duration,created_at,updated_at FROM notes ORDER BY updated_at DESC')
     events = store.rows('SELECT kind,created_at FROM events')
+    creation_events = [event for event in events if event['kind'] in ('manual', 'generated', 'curated')]
     days = {}
     for event in events:
         day = datetime.fromisoformat(event['created_at']).astimezone().date().isoformat()
@@ -177,9 +178,11 @@ def stats():
                  'count': days.get((start + timedelta(days=i)).isoformat(), 0),
                  'in_range': first <= start + timedelta(days=i) <= today}
                 for i in range((end - start).days + 1)]
-    return {'generated': sum(n['kind'] in ('txt', 'mp4', 'url') for n in notes), 'curated': sum(n['kind'] == 'curate' for n in notes),
-            'manual': sum(n['kind'] == 'manual' for n in notes),
-            'notes': len(notes), 'links': sum(len(store.links(n['content'])) for n in notes),
+    return {'generated': sum(e['kind'] == 'generated' for e in creation_events),
+            'curated': sum(e['kind'] == 'curated' for e in creation_events),
+            'manual': sum(e['kind'] == 'manual' for e in creation_events),
+            'notes': len(creation_events),
+            'links': store.one('SELECT COUNT(*) AS count FROM knowledge_links')['count'],
             'minutes': round(sum(n['duration'] for n in notes) / 60), 'patches': sum(e['kind'] == 'patch' for e in events),
             'streak': streak, 'active_days': len(days), 'activity': activity,
             'graph': [{'id': n['id'], 'title': n['title'], 'links': store.links(n['content'])} for n in notes]}
@@ -216,6 +219,34 @@ def note(note_id: str):
 def edit(note_id: str, value: EditInput):
     store.revise(note_id, value.content, 'edit', value.expected, title=value.title)
     return note(note_id)
+
+
+@app.post('/api/notes/{note_id}/images')
+async def paste_image(note_id: str, file: UploadFile = File(...)):
+    get_note(note_id)
+    suffix_by_type = {
+        'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif', 'image/webp': '.webp',
+    }
+    suffix = suffix_by_type.get((file.content_type or '').lower())
+    if not suffix:
+        await file.close()
+        raise ValueError('仅支持 PNG、JPEG、GIF 或 WebP 图片。')
+    try:
+        content = await file.read(10 * 1024 * 1024 + 1)
+        if not content or len(content) > 10 * 1024 * 1024:
+            raise ValueError('图片为空或超过 10 MB。')
+        filename = store.uid() + suffix
+        repository.write_asset(store.settings(True)['repository_path'], note_id, filename, content)
+        return {'path': f'assets/{note_id}/{filename}', 'alt': Path(file.filename or '').stem[:120] or '粘贴的图片'}
+    finally:
+        await file.close()
+
+
+@app.get('/api/notes/{note_id}/images/{filename}')
+def note_image(note_id: str, filename: str):
+    get_note(note_id)
+    path = repository.read_asset(store.settings(True)['repository_path'], note_id, filename)
+    return FileResponse(path, headers={'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff'})
 
 
 @app.delete('/api/notes/{note_id}')

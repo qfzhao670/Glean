@@ -20,8 +20,8 @@ def test_reveal_only_requested_secret_requires_local_auth_and_never_caches(clien
     assert client.post(url).json() == {'value': ''}
 
 
-def test_delete_note_removes_managed_file_and_related_records(client):
-    created = client.post('/api/notes', json={'title': '待删除', 'content': '# 待删除\n\n正文'}).json()
+def test_delete_note_removes_managed_file_but_keeps_lifetime_stats(client):
+    created = client.post('/api/notes', json={'title': '待删除', 'content': '# 待删除\n\n正文 [[长期知识]]'}).json()
     note_id = created['id']
     path = Path(created['note_file'])
     client.put(f'/api/notes/{note_id}', json={'title': '待删除', 'content': '# 待删除\n\n修改', 'expected': created['content']})
@@ -33,7 +33,51 @@ def test_delete_note_removes_managed_file_and_related_records(client):
     assert store.one('SELECT * FROM notes WHERE id=?', (note_id,)) is None
     assert store.rows('SELECT * FROM messages WHERE note_id=?', (note_id,)) == []
     assert store.rows('SELECT * FROM revisions WHERE note_id=?', (note_id,)) == []
-    assert store.rows('SELECT * FROM events WHERE note_id=?', (note_id,)) == []
+    assert len(store.rows('SELECT * FROM events WHERE note_id=?', (note_id,))) == 2
+    assert store.rows('SELECT target FROM knowledge_links WHERE note_id=?', (note_id,)) == [{'target': '长期知识'}]
+    stats = client.get('/api/stats').json()
+    assert stats['notes'] == 1 and stats['manual'] == 1 and stats['links'] == 1
+
+
+def test_lifetime_link_count_only_grows_when_links_are_edited_or_removed(client):
+    created = client.post('/api/notes', json={'title': '连接', 'content': '# 连接\n[[甲]]'}).json()
+    changed = client.put(f'/api/notes/{created["id"]}', json={
+        'title': '连接', 'content': '# 连接\n[[乙]]', 'expected': created['content'],
+    }).json()
+    assert client.get('/api/stats').json()['links'] == 2
+    client.put(f'/api/notes/{created["id"]}', json={
+        'title': '连接', 'content': '# 连接\n无链接', 'expected': changed['content'],
+    })
+    assert client.get('/api/stats').json()['links'] == 2
+
+
+def test_pasted_image_is_saved_served_and_moves_with_repository(client, tmp_path):
+    created = client.post('/api/notes', json={'title': '图文笔记'}).json()
+    image = client.post(f'/api/notes/{created["id"]}/images', files={
+        'file': ('示意图.png', b'\x89PNG\r\n\x1a\nfixture', 'image/png'),
+    })
+    assert image.status_code == 200
+    path = image.json()['path']
+    assert path.startswith(f'assets/{created["id"]}/') and path.endswith('.png')
+    filename = Path(path).name
+    response = client.get(f'/api/notes/{created["id"]}/images/{filename}')
+    assert response.content == b'\x89PNG\r\n\x1a\nfixture'
+    target = tmp_path / 'new-repository'
+    target.mkdir()
+    assert client.put('/api/repository', json={'path': str(target)}).status_code == 200
+    assert (target / path).read_bytes() == response.content
+
+
+def test_pasted_image_rejects_unsupported_or_oversized_files(client):
+    created = client.post('/api/notes', json={'title': '图片限制'}).json()
+    unsupported = client.post(f'/api/notes/{created["id"]}/images', files={
+        'file': ('payload.svg', b'<svg/>', 'image/svg+xml'),
+    })
+    assert unsupported.status_code == 400
+    oversized = client.post(f'/api/notes/{created["id"]}/images', files={
+        'file': ('large.png', b'x' * (10 * 1024 * 1024 + 1), 'image/png'),
+    })
+    assert oversized.status_code == 400
 
 
 def test_delete_refuses_to_remove_externally_changed_markdown(client):

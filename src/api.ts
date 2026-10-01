@@ -14,6 +14,16 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   return response.json();
 }
 export const post = <T,>(path: string, body?: unknown) => api<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
+export async function apiBlob(path: string): Promise<Blob> {
+  const response = await fetch(baseUrl + '/api' + path, { headers: { 'X-Glean-Token': token } });
+  if (!response.ok) throw new Error('图片无法读取。');
+  return response.blob();
+}
+export async function uploadNoteImage(noteId: string, file: File): Promise<{ path: string; alt: string }> {
+  const form = new FormData();
+  form.append('file', file);
+  return api<{ path: string; alt: string }>(`/notes/${noteId}/images`, { method: 'POST', body: form });
+}
 export function uploadJob(file: File, detailed: boolean, onProgress: (progress: number) => void): Promise<{ id: string }> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();

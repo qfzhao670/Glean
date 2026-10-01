@@ -65,9 +65,31 @@ def init():
           id TEXT PRIMARY KEY, note_id TEXT, role TEXT, content TEXT, patch TEXT DEFAULT '', created_at TEXT);
         CREATE TABLE IF NOT EXISTS events (
           id TEXT PRIMARY KEY, kind TEXT, note_id TEXT, created_at TEXT);
+        CREATE TABLE IF NOT EXISTS knowledge_links (
+          note_id TEXT, target TEXT, created_at TEXT,
+          PRIMARY KEY (note_id, target));
         ''')
         if 'note_file' not in [r['name'] for r in c.execute('PRAGMA table_info(notes)')]:
             c.execute("ALTER TABLE notes ADD COLUMN note_file TEXT DEFAULT ''")
+        # Historical counters are intentionally independent of the live notes
+        # table. Upgrade existing libraries from their current contents once;
+        # subsequent deletes keep both creation events and discovered links.
+        creation_kinds = ('manual', 'generated', 'curated')
+        for note in c.execute('SELECT id,content,created_at FROM notes').fetchall():
+            for target in links(note['content']):
+                c.execute(
+                    'INSERT OR IGNORE INTO knowledge_links VALUES (?,?,?)',
+                    (note['id'], target, note['created_at']),
+                )
+        # Very old databases may have notes without their creation event.
+        for note in c.execute('SELECT id,kind,created_at FROM notes').fetchall():
+            exists = c.execute(
+                'SELECT 1 FROM events WHERE note_id=? AND kind IN (?,?,?)',
+                (note['id'], *creation_kinds),
+            ).fetchone()
+            if not exists:
+                kind = 'manual' if note['kind'] == 'manual' else 'curated' if note['kind'] == 'curate' else 'generated'
+                c.execute('INSERT INTO events VALUES (?,?,?,?)', (uid(), kind, note['id'], note['created_at']))
         c.execute("UPDATE jobs SET status='failed', error='应用已重启，任务中断。可以重试，已提取的字幕会继续使用。' WHERE status IN ('running','queued')")
     (DATA / 'notes').mkdir(exist_ok=True)
     # Existing database-only notes gain Markdown files on upgrade. A disconnected
@@ -98,6 +120,7 @@ def settings(private=False):
 def save_settings(value):
     with LOCK:
         current = settings(True)
+        previous_repository = current['repository_path']
         for key, val in value.items():
             if key in DEFAULTS:
                 if key in ('api_key', 'transcription_key') and val == '':
@@ -110,6 +133,7 @@ def save_settings(value):
             if current['repository_path'] != settings(True)['repository_path']:
                 # Copy to the newly chosen folder, keeping previous files intact.
                 _materialize(c, current['repository_path'], move=True)
+                repository.copy_assets(previous_repository, current['repository_path'])
             temporary.write_text(json.dumps(current, ensure_ascii=False, indent=2))
             temporary.chmod(0o600)
             temporary.replace(path)
@@ -161,6 +185,8 @@ def create_note(title, content, transcript, source, kind, duration=0):
         c.execute('INSERT INTO notes (id,title,content,transcript,source,kind,duration,vault_file,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
                   (note_id, title, content, transcript, source, kind, duration, '', timestamp, timestamp))
         c.execute('INSERT INTO events VALUES (?,?,?,?)', (uid(), 'manual' if kind == 'manual' else 'curated' if kind == 'curate' else 'generated', note_id, timestamp))
+        for target in links(content):
+            c.execute('INSERT OR IGNORE INTO knowledge_links VALUES (?,?,?)', (note_id, target, timestamp))
         path = repository.write(settings(True)['repository_path'], title, content)
         c.execute('UPDATE notes SET note_file=? WHERE id=?', (path, note_id))
     return note_id
@@ -176,6 +202,8 @@ def revise(note_id, content, reason, expected=None, title=None):
         c.execute('INSERT INTO revisions VALUES (?,?,?,?,?)', (uid(), note_id, note['content'], reason, now()))
         title = title or title_of(content, note['title'])
         c.execute('UPDATE notes SET content=?,title=?,updated_at=? WHERE id=?', (content, title, now(), note_id))
+        for target in links(content):
+            c.execute('INSERT OR IGNORE INTO knowledge_links VALUES (?,?,?)', (note_id, target, now()))
         if reason == 'chat_patch':
             c.execute('INSERT INTO events VALUES (?,?,?,?)', (uid(), 'patch', note_id, now()))
         elif reason == 'edit':
@@ -192,6 +220,8 @@ def delete_note(note_id):
         repository.remove(settings(True)['repository_path'], note['note_file'], note['content'])
         c.execute('DELETE FROM messages WHERE note_id=?', (note_id,))
         c.execute('DELETE FROM revisions WHERE note_id=?', (note_id,))
-        c.execute('DELETE FROM events WHERE note_id=?', (note_id,))
+        # Creation/activity events and discovered knowledge links are a learning
+        # history, not a projection of the current library. Keep them so the
+        # dashboard never moves backwards when a note is removed.
         c.execute('DELETE FROM jobs WHERE note_id=?', (note_id,))
         c.execute('DELETE FROM notes WHERE id=?', (note_id,))
