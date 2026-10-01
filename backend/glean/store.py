@@ -68,9 +68,13 @@ def init():
         CREATE TABLE IF NOT EXISTS knowledge_links (
           note_id TEXT, target TEXT, created_at TEXT,
           PRIMARY KEY (note_id, target));
+        CREATE TABLE IF NOT EXISTS folders (
+          id TEXT PRIMARY KEY, name TEXT UNIQUE, created_at TEXT);
         ''')
         if 'note_file' not in [r['name'] for r in c.execute('PRAGMA table_info(notes)')]:
             c.execute("ALTER TABLE notes ADD COLUMN note_file TEXT DEFAULT ''")
+        if 'folder_id' not in [r['name'] for r in c.execute('PRAGMA table_info(notes)')]:
+            c.execute("ALTER TABLE notes ADD COLUMN folder_id TEXT DEFAULT NULL")
         # Historical counters are intentionally independent of the live notes
         # table. Upgrade existing libraries from their current contents once;
         # subsequent deletes keep both creation events and discovered links.
@@ -147,9 +151,12 @@ def materialize_notes(folder=None, move=False):
 
 
 def _materialize(c, folder, move=False):
-    for row in c.execute('SELECT * FROM notes').fetchall():
+    query = '''SELECT notes.*, folders.name AS folder_name FROM notes
+               LEFT JOIN folders ON folders.id=notes.folder_id'''
+    for row in c.execute(query).fetchall():
         if move or not row['note_file']:
-            path = repository.write(folder, row['title'], row['content'])
+            destination = repository.ensure_folder(folder, row['folder_name']) if row['folder_name'] else folder
+            path = repository.write(str(destination), row['title'], row['content'])
             c.execute('UPDATE notes SET note_file=? WHERE id=?', (path, row['id']))
 
 
@@ -190,6 +197,35 @@ def create_note(title, content, transcript, source, kind, duration=0):
         path = repository.write(settings(True)['repository_path'], title, content)
         c.execute('UPDATE notes SET note_file=? WHERE id=?', (path, note_id))
     return note_id
+
+
+def create_folder(name):
+    folder_id, timestamp = uid(), now()
+    with db() as c:
+        if c.execute('SELECT 1 FROM folders WHERE name=?', (name,)).fetchone():
+            raise ValueError('已有同名文件夹，请换一个名称。')
+        repository.ensure_folder(settings(True)['repository_path'], name, exclusive=True)
+        c.execute('INSERT INTO folders VALUES (?,?,?)', (folder_id, name, timestamp))
+    return {'id': folder_id, 'name': name, 'created_at': timestamp, 'note_count': 0}
+
+
+def move_note(note_id, folder_id=None):
+    with db() as c:
+        note = c.execute('SELECT * FROM notes WHERE id=?', (note_id,)).fetchone()
+        if not note:
+            raise ValueError('笔记不存在')
+        folder_name = ''
+        if folder_id:
+            folder = c.execute('SELECT * FROM folders WHERE id=?', (folder_id,)).fetchone()
+            if not folder:
+                raise ValueError('目标文件夹不存在')
+            folder_name = folder['name']
+        if note['folder_id'] == folder_id:
+            return
+        path = repository.move(
+            settings(True)['repository_path'], note['note_file'], note['content'], folder_name,
+        )
+        c.execute('UPDATE notes SET folder_id=?,note_file=? WHERE id=?', (folder_id, path, note_id))
 
 
 def revise(note_id, content, reason, expected=None, title=None):

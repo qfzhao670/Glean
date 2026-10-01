@@ -195,3 +195,61 @@ def test_upgrade_adds_file_column_to_original_database(tmp_path, monkeypatch):
     note = store.one('SELECT * FROM notes WHERE id=?', ('old',))
     assert Path(note['note_file']).read_text() == '# 旧笔记'
     assert note['source'] == '课程.txt'
+
+
+def test_create_folder_and_move_note_moves_the_markdown_file(client):
+    note = client.post('/api/notes', json={'title': '缓存', 'content': '# 缓存\n正文'}).json()
+    original = Path(note['note_file'])
+    folder = client.post('/api/folders', json={'name': '计算机基础'}).json()
+    assert (original.parent / '计算机基础').is_dir()
+    assert client.get('/api/folders').json()[0]['note_count'] == 0
+
+    moved = client.put(f'/api/notes/{note["id"]}/folder', json={'folder_id': folder['id']})
+    assert moved.status_code == 200
+    target = Path(moved.json()['note_file'])
+    assert target.parent.name == '计算机基础'
+    assert target.read_text() == '# 缓存\n正文'
+    assert not original.exists()
+    listed = client.get('/api/notes').json()[0]
+    assert listed['folder_id'] == folder['id'] and listed['folder_name'] == '计算机基础'
+    assert client.get('/api/folders').json()[0]['note_count'] == 1
+
+    returned = client.put(f'/api/notes/{note["id"]}/folder', json={'folder_id': None}).json()
+    assert Path(returned['note_file']).parent == store.DATA / 'notes'
+    assert Path(returned['note_file']).read_text() == '# 缓存\n正文'
+    assert not target.exists()
+
+
+def test_folder_move_never_overwrites_files_or_external_edits(client):
+    note = client.post('/api/notes', json={'title': '同名', 'content': '应用正文'}).json()
+    folder = client.post('/api/folders', json={'name': '项目'}).json()
+    existing = store.DATA / 'notes' / '项目' / '同名.md'
+    existing.write_text('用户原有文件')
+    moved = client.put(f'/api/notes/{note["id"]}/folder', json={'folder_id': folder['id']}).json()
+    current = Path(moved['note_file'])
+    assert current.name == '同名 (1).md'
+    assert existing.read_text() == '用户原有文件'
+
+    current.write_text('外部编辑')
+    response = client.put(f'/api/notes/{note["id"]}/folder', json={'folder_id': None})
+    assert response.status_code == 400 and '其他程序修改' in response.json()['detail']
+    assert client.get(f'/api/notes/{note["id"]}').json()['folder_id'] == folder['id']
+    assert current.read_text() == '外部编辑'
+
+
+@pytest.mark.parametrize('name', ['', '..', '../越界', '课程/第一章', '课程\\第一章'])
+def test_folder_names_cannot_escape_repository(client, name):
+    response = client.post('/api/folders', json={'name': name})
+    assert response.status_code in (400, 422)
+
+
+def test_repository_switch_preserves_folder_structure(client, tmp_path):
+    note = client.post('/api/notes', json={'title': '分组笔记', 'content': '正文'}).json()
+    folder = client.post('/api/folders', json={'name': '专题'}).json()
+    client.put(f'/api/notes/{note["id"]}/folder', json={'folder_id': folder['id']})
+    destination = tmp_path / '新仓库'
+    destination.mkdir()
+    assert client.put('/api/repository', json={'path': str(destination)}).status_code == 200
+    updated = client.get(f'/api/notes/{note["id"]}').json()
+    assert Path(updated['note_file']).parent == destination / '专题'
+    assert Path(updated['note_file']).read_text() == '正文'

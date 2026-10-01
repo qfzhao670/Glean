@@ -11,6 +11,16 @@ from pathlib import Path
 IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
 
 
+def _folder_name(name):
+    value = name.strip()
+    if (not value or value in ('.', '..') or Path(value).name != value or
+            re.search(r'[<>:"/\\|?*\x00-\x1f]', value) or value.endswith(('.', ' '))):
+        raise ValueError('文件夹名称包含无效字符。')
+    if len(value) > 60:
+        raise ValueError('文件夹名称不能超过 60 个字符。')
+    return value
+
+
 def root(path):
     target = Path(path).expanduser()
     if not target.is_absolute():
@@ -18,6 +28,63 @@ def root(path):
     if not target.is_dir():
         raise ValueError('笔记仓库目录不存在，请重新选择。')
     return target.resolve()
+
+
+def ensure_folder(folder, name, exclusive=False):
+    """Return a safe first-level folder, optionally requiring it to be new."""
+    folder = root(folder)
+    target = folder / _folder_name(name)
+    try:
+        if target.exists() or target.is_symlink():
+            if exclusive:
+                raise ValueError('已有同名文件夹，请换一个名称。')
+            if target.is_symlink() or not target.is_dir() or not target.resolve().is_relative_to(folder):
+                raise ValueError('文件夹位置无效，请换一个名称。')
+            return target
+        target.mkdir()
+        return target
+    except ValueError:
+        raise
+    except OSError as exc:
+        raise ValueError('无法新建文件夹，请检查仓库权限和磁盘空间。') from exc
+
+
+def move(folder, current, expected, destination=''):
+    """Move a managed Markdown file without overwriting user files."""
+    folder = root(folder)
+    source = Path(current)
+    try:
+        if source.is_symlink() or not source.is_file() or not source.resolve().is_relative_to(folder):
+            raise ValueError('笔记文件已移出当前仓库，请检查保存位置。')
+        if source.read_text(encoding='utf-8') != expected:
+            raise ValueError('仓库文件已被其他程序修改，本次未移动。请先导入外部版本。')
+        target_folder = ensure_folder(folder, destination) if destination else folder
+        if source.parent.resolve() == target_folder.resolve():
+            return str(source)
+        stem, suffix = source.stem, source.suffix
+        for index in range(10000):
+            target = target_folder / (stem + (f' ({index})' if index else '') + suffix)
+            try:
+                try:
+                    os.link(source, target)
+                except OSError as exc:
+                    if exc.errno not in (errno.EPERM, errno.ENOTSUP, errno.EXDEV, errno.ENOSYS):
+                        raise
+                    with target.open('xb') as output, source.open('rb') as input_file:
+                        shutil.copyfileobj(input_file, output)
+                try:
+                    source.unlink()
+                except OSError:
+                    target.unlink(missing_ok=True)
+                    raise
+                return str(target)
+            except FileExistsError:
+                continue
+        raise ValueError('目标文件夹中的同名笔记过多，请调整文件名。')
+    except ValueError:
+        raise
+    except (OSError, UnicodeError) as exc:
+        raise ValueError('无法移动笔记，请检查文件夹权限和磁盘空间。') from exc
 
 
 def write(folder, title, content, current='', expected=None):

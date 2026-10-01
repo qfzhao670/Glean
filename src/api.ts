@@ -1,4 +1,5 @@
-export interface Note { id: string; title: string; excerpt: string; content: string; transcript: string; kind: string; source: string; duration: number; links: number; created_at: string; updated_at: string; vault_file: string; note_file: string; messages: Message[]; revisions: Revision[] }
+export interface Note { id: string; title: string; excerpt: string; content: string; transcript: string; kind: string; source: string; duration: number; links: number; created_at: string; updated_at: string; vault_file: string; note_file: string; folder_id: string | null; folder_name: string | null; messages: Message[]; revisions: Revision[] }
+export interface Folder { id: string; name: string; created_at: string; note_count: number }
 export interface Message { id: string; role: string; content: string; patch: string }
 export interface Revision { id: string; reason: string; created_at: string }
 export interface Job { id: string; status: string; title: string; kind: string; stage: string; progress: number; error: string; note_id: string }

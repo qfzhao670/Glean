@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, BookOpen, Check, ChevronRight, FileText, FolderOpen, Leaf, LoaderCircle, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings2, Sprout, X } from 'lucide-react';
-import { api, post, streamJobUpdates, type Job, type Note, type Settings, type Stats } from './api';
+import { api, post, streamJobUpdates, type Folder, type Job, type Note, type Settings, type Stats } from './api';
 import { currentJobs } from './jobs';
 import CreateModal from './components/CreateModal';
 import SettingsPage from './components/SettingsPage';
 import NoteDetail from './components/NoteDetail';
-import Library from './components/Library';
+import Library, { type LibraryFilter } from './components/Library';
 import GeneratingNote from './components/GeneratingNote';
 import HomeDashboard from './components/HomeDashboard';
 const emptyStats: Stats = { generated: 0, curated: 0, manual: 0, notes: 0, links: 0, minutes: 0, patches: 0, streak: 0, active_days: 0, activity: [], graph: [] };
@@ -13,11 +13,13 @@ const emptyStats: Stats = { generated: 0, curated: 0, manual: 0, notes: 0, links
 function Logo({ small = false }: { small?: boolean }) { return <svg viewBox="0 0 36 40" width={small ? 23 : 31} height={small ? 27 : 35} fill="none" aria-hidden="true"><path d="M18 36V14M18 25C6 26 2 16 4 7C15 8 21 13 18 25ZM18 18C29 19 35 9 31 2C22 4 18 8 18 18Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><path d="M9 15L18 25M27 9L18 18" stroke="currentColor" strokeWidth="1.2"/></svg>; }
 export default function App() {
   const [page, setPage] = useState<'home' | 'notes' | 'settings'>('home'); const [selected, setSelected] = useState<string | null>(null);
-  const [stats, setStats] = useState<Stats>(emptyStats); const [notes, setNotes] = useState<Note[]>([]); const [jobs, setJobs] = useState<Job[]>([]); const [settings, setSettings] = useState<Settings | null>(null);
+  const [stats, setStats] = useState<Stats>(emptyStats); const [notes, setNotes] = useState<Note[]>([]); const [folders, setFolders] = useState<Folder[]>([]); const [jobs, setJobs] = useState<Job[]>([]); const [settings, setSettings] = useState<Settings | null>(null);
   const [modal, setModal] = useState<'txt' | 'mp4' | 'curate' | null>(null); const [toast, setToast] = useState(''); const [error, setError] = useState(''); const [showJobs, setShowJobs] = useState(false); const [dismissedJobs, setDismissedJobs] = useState<Set<string>>(new Set()); const [toastNote, setToastNote] = useState('');
   const [generatingJob, setGeneratingJob] = useState<string | null>(null);
   const [openNoteIds, setOpenNoteIds] = useState<string[]>([]);
   const [workspaceQuery, setWorkspaceQuery] = useState('');
+  const [libraryFilter, setLibraryFilter] = useState<LibraryFilter>('all');
+  const [libraryFolder, setLibraryFolder] = useState<string | null>(null);
   const [noteSwitcherCollapsed, setNoteSwitcherCollapsed] = useState(() => localStorage.getItem('glean-note-switcher-collapsed') === '1');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const watchedJobs = useRef(new Set<string>());
@@ -25,7 +27,7 @@ export default function App() {
   const jobStreams = useRef(new Map<string, AbortController>());
   const [editNew, setEditNew] = useState(false); const [dirty, setDirty] = useState(false);
   const notify = useCallback((message: string, noteId = '') => { setToast(message); setToastNote(noteId); if (toastTimer.current) clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(''), 5000); }, []);
-  const refresh = useCallback(async () => { try { const [s, n, j, config] = await Promise.all([api<Stats>('/stats'), api<Note[]>('/notes'), api<Job[]>('/jobs'), api<Settings>('/settings')]); setStats(s); setNotes(n); setJobs(j); setSettings(config); setError('');
+  const refresh = useCallback(async () => { try { const [s, n, f, j, config] = await Promise.all([api<Stats>('/stats'), api<Note[]>('/notes'), api<Folder[]>('/folders'), api<Job[]>('/jobs'), api<Settings>('/settings')]); setStats(s); setNotes(n); setFolders(f); setJobs(j); setSettings(config); setError('');
       for (const job of j) {
         if (job.status === 'running' || job.status === 'queued') watchedJobs.current.add(job.id);
         else if (watchedJobs.current.delete(job.id)) {
@@ -108,7 +110,7 @@ export default function App() {
     {page === 'notes' && generatingJob && <GeneratingNote jobId={generatingJob} onBack={() => navigate('notes')} onCompleted={id => { setGeneratingJob(null); setEditNew(false); setOpenNoteIds(previous => previous.includes(id) ? previous : [...previous, id]); setSelected(id); void refresh(); }} onLink={title => {
       const target = notes.find(note => note.title === title);
       if (target) openNote(target.id);
-    }}/>} {page === 'notes' && !generatingJob && !selected && <Library notes={notes} onOpen={openNote} onGenerate={() => setModal('txt')} onChanged={refresh}/>} {page === 'notes' && !generatingJob && selected && <div className={`note-workspace ${noteSwitcherCollapsed ? 'switcher-collapsed' : ''}`}>
+    }}/>} {page === 'notes' && !generatingJob && !selected && <Library notes={notes} folders={folders} filter={libraryFilter} selectedFolder={libraryFolder} onFilterChange={setLibraryFilter} onFolderChange={setLibraryFolder} onOpen={openNote} onGenerate={() => setModal('txt')} onChanged={refresh} notify={notify}/>} {page === 'notes' && !generatingJob && selected && <div className={`note-workspace ${noteSwitcherCollapsed ? 'switcher-collapsed' : ''}`}>
       <aside className="note-switcher">
         <div className="note-switcher-rail">
           <button title="展开笔记栏" aria-label="展开笔记栏" onClick={toggleNoteSwitcher}><FileText size={17}/></button>

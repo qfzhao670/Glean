@@ -104,6 +104,22 @@ class NoteInput(BaseModel):
     content: str = Field(default='', max_length=2_000_000)
 
 
+class FolderInput(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    @field_validator('name')
+    @classmethod
+    def valid_name(cls, value):
+        value = value.strip()
+        if (not value or value in ('.', '..') or Path(value).name != value or
+                re.search(r'[<>:"/\\|?*\x00-\x1f]', value) or value.endswith(('.', ' '))):
+            raise ValueError('文件夹名称包含无效字符。')
+        return value
+
+
+class MoveNoteInput(BaseModel):
+    folder_id: str | None = Field(default=None, max_length=64)
+
+
 class RepositoryInput(BaseModel):
     path: str = Field(min_length=1, max_length=2000)
 
@@ -190,13 +206,28 @@ def stats():
 
 @app.get('/api/notes')
 def notes():
-    values = store.rows('SELECT id,title,content,source,kind,duration,vault_file,note_file,created_at,updated_at FROM notes ORDER BY updated_at DESC')
+    values = store.rows('''SELECT notes.id,notes.title,notes.content,notes.source,notes.kind,notes.duration,
+                        notes.vault_file,notes.note_file,notes.folder_id,folders.name AS folder_name,
+                        notes.created_at,notes.updated_at FROM notes
+                        LEFT JOIN folders ON folders.id=notes.folder_id ORDER BY notes.updated_at DESC''')
     for note in values:
         content = note.pop('content')
         body = re.sub(r'\A---\n.*?\n---\n', '', content, flags=re.S)
         note['excerpt'] = re.sub(r'[#*>\[\]=`]', '', body).strip().replace('\n', ' ')[:130]
         note['links'] = len(store.links(content))
     return values
+
+
+@app.get('/api/folders')
+def folders():
+    return store.rows('''SELECT folders.id,folders.name,folders.created_at,COUNT(notes.id) AS note_count
+                       FROM folders LEFT JOIN notes ON notes.folder_id=folders.id
+                       GROUP BY folders.id ORDER BY folders.created_at,folders.name''')
+
+
+@app.post('/api/folders')
+def create_folder(value: FolderInput):
+    return store.create_folder(value.name)
 
 
 @app.post('/api/notes')
@@ -253,6 +284,12 @@ def note_image(note_id: str, filename: str):
 def delete_note(note_id: str):
     store.delete_note(note_id)
     return {'ok': True}
+
+
+@app.put('/api/notes/{note_id}/folder')
+def move_note(note_id: str, value: MoveNoteInput):
+    store.move_note(note_id, value.folder_id)
+    return note(note_id)
 
 
 @app.post('/api/notes/{note_id}/restore/{revision_id}')
