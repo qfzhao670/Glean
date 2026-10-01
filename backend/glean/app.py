@@ -180,6 +180,10 @@ def stats():
     for event in events:
         day = datetime.fromisoformat(event['created_at']).astimezone().date().isoformat()
         days[day] = days.get(day, 0) + 1
+    note_days = {}
+    for event in creation_events:
+        day = datetime.fromisoformat(event['created_at']).astimezone().date().isoformat()
+        note_days[day] = note_days.get(day, 0) + 1
     today, streak = date.today(), 0
     cursor = today if today.isoformat() in days else today - timedelta(days=1)
     while cursor.isoformat() in days:
@@ -191,7 +195,7 @@ def stats():
     start = first - timedelta(days=first.weekday())
     end = today + timedelta(days=6 - today.weekday())
     activity = [{'date': (start + timedelta(days=i)).isoformat(),
-                 'count': days.get((start + timedelta(days=i)).isoformat(), 0),
+                 'count': note_days.get((start + timedelta(days=i)).isoformat(), 0),
                  'in_range': first <= start + timedelta(days=i) <= today}
                 for i in range((end - start).days + 1)]
     return {'generated': sum(e['kind'] == 'generated' for e in creation_events),

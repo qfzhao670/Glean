@@ -24,6 +24,7 @@ def test_manual_create_edit_restore_are_saved_to_same_markdown(client):
     assert restored['content'] == path.read_text() == original
     stats = client.get('/api/stats').json()
     assert stats['manual'] == 1 and stats['generated'] == 0 and stats['curated'] == 0
+    assert next(day for day in stats['activity'] if day['date'] == date.today().isoformat())['count'] == 1
     assert client.get('/api/notes').json()[0]['note_file'] == str(path)
 
 

@@ -31,12 +31,15 @@
 .dashboard .garden-activity{margin:0}
 .dashboard .activity-section{padding:15px 0 0}
 .dashboard .activity-label{margin-top:8px}
-.activity-calendar{margin-top:12px}
+.activity-calendar{position:relative;margin-top:12px}
 .activity-months{display:grid;margin-left:22px;gap:4px;font-size:10px;color:#7d8c73;min-height:16px}
 .activity-months span{white-space:nowrap;overflow:visible}
+.activity-tooltip{position:absolute;z-index:2;transform:translate(-50%,-100%);padding:5px 9px;border:1px solid #d6e0d7;border-radius:6px;background:#fbfcf9f2;box-shadow:0 5px 14px #24423112;color:#53675c;font-size:10px;line-height:1;white-space:nowrap;pointer-events:none}
+.activity-tooltip strong{color:#244e3c;font:600 12px Georgia,serif}
 .dashboard .activity-chart{margin-top:6px}
 .dashboard .heatmap{gap:4px;min-width:0}
-.dashboard .heat-cell{height:clamp(9px,1.4vh,14px)}
+.dashboard .heat-cell{height:clamp(9px,1.2vh,12px);transition:transform .12s ease,box-shadow .12s ease}
+.dashboard .heat-cell:not(.outside-range):hover{position:relative;z-index:1;transform:scale(1.2);box-shadow:0 0 0 1px #fff,0 2px 5px #294b3930}
 .heat-cell.outside-range{visibility:hidden}
 .dashboard .activity-footer{margin-top:9px}
 .dashboard .mini-totals{margin-top:10px}
@@ -519,13 +522,14 @@ body{background:#edf1ed;color:#31493f}
 .practice-list>button.done span{text-decoration:line-through;color:#809087}
 .practice-list>button time{margin-left:auto;color:#8c9992;font-size:10px}
 .daily-practice>p{margin-top:12px;font:11px var(--serif);color:#7a8982}
+.practice-trail{display:flex;flex-direction:column}
 .practice-trail .activity-calendar{margin-top:18px}
 .practice-trail .activity-months{margin-left:18px;font-size:9px;gap:3px}
 .practice-trail .activity-chart{margin-top:5px;gap:8px}
-.practice-trail .heatmap{gap:4px}
-.practice-trail .heat-cell{height:13px;border-radius:3px}
-.practice-trail footer{display:flex;align-items:end;justify-content:space-between;margin-top:14px;font:10px var(--serif);color:#7b8a83}
-.practice-trail footer strong{font:30px Georgia,serif;color:#224b3a}
+.practice-trail .heatmap{gap:3px}
+.practice-trail .heat-cell{height:clamp(8px,1.05vh,10px);border-radius:3px}
+.practice-trail footer{display:flex;align-items:end;justify-content:space-between;margin-top:auto;padding-top:7px;font:10px var(--serif);color:#7b8a83}
+.practice-trail footer strong{font:30px/1 Georgia,serif;color:#224b3a}
 .practice-trail footer small{font:10px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:#687a70}
 .inspiration-card{position:relative;background:linear-gradient(150deg,#fbfcf9e8,#f6f8f5dc),url('./assets/ink-landscape.png') 68% bottom/auto 72% no-repeat}
 .inspiration-card blockquote{margin:31px 13px 0;font:17px/1.9 var(--serif);color:#2e4d40;letter-spacing:1px}
@@ -650,7 +654,7 @@ body{background:#edf1ed;color:#31493f}
   .practice-list>button{height:clamp(27px,3.6vh,34px)}
   .daily-practice>p{margin-top:clamp(6px,1.1vh,12px)}
   .practice-trail .activity-calendar{margin-top:clamp(8px,1.6vh,18px)}
-  .practice-trail footer{margin-top:clamp(7px,1.2vh,14px)}
+  .practice-trail footer{margin-top:auto;padding-top:clamp(4px,.8vh,7px)}
   .inspiration-card{display:block}
   .inspiration-card blockquote{margin-top:clamp(15px,2.7vh,31px);font-size:clamp(14px,1.25vw,17px)}
   .recent-notes{min-height:0;margin:0}
@@ -677,7 +681,7 @@ body{background:#edf1ed;color:#31493f}
   .spirit-progress{bottom:27px}.garden>p{bottom:0;font-size:11px}.hero-verse strong{font-size:17px}.hero-verse span{font-size:9px}
   .dashboard-card{padding:11px 15px}.dashboard-card h2,.recent-notes h2{font-size:14px}.dashboard-card header>button,.dashboard-card header>span{font-size:9px}
   .practice-list{margin-top:5px}.practice-list>button{height:25px;font-size:10px}.practice-list>button i{width:14px;height:14px}.practice-list>button time{font-size:8px}.daily-practice>p{margin-top:5px;font-size:9px}
-  .practice-trail .activity-calendar{margin-top:5px}.practice-trail .heat-cell{height:9px}.practice-trail footer{margin-top:4px;font-size:8px}.practice-trail footer strong{font-size:22px}.practice-trail footer small{font-size:8px}
+  .practice-trail .activity-calendar{margin-top:5px}.practice-trail .heat-cell{height:9px}.practice-trail footer{margin-top:auto;padding-top:4px;font-size:8px}.practice-trail footer strong{font-size:22px}.practice-trail footer small{font-size:8px}
   .inspiration-card blockquote{margin:12px 8px 0;font-size:13px;line-height:1.65}.inspiration-card cite{margin-top:6px;font-size:10px}
   .recent-notes>header{height:22px}.recent-note-grid>button,.recent-empty{height:48px}.recent-note-grid>button{padding:7px 10px}.recent-note-grid>button>svg{width:29px;height:29px}.recent-note-grid>button>span{gap:3px}.recent-note-grid em{padding:3px 5px;font-size:8px}
 }
