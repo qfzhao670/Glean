@@ -455,16 +455,30 @@ body{background:#edf1ed;color:#31493f}
 .hero-cta:hover{background:linear-gradient(135deg,#1a4939,#346951);box-shadow:0 10px 28px #1d46352c;transform:translateY(-1px)}
 .hero-footnote{font-size:11px;margin-top:13px;color:#77877f;letter-spacing:.4px}
 .garden{position:relative;height:100%;display:flex!important;align-items:center!important;justify-content:center!important;overflow:visible}
-.spirit-bottle{position:absolute;width:min(390px,42vw);height:min(390px,42vw);object-fit:contain;top:2px;left:35%;transform:translateX(-50%);filter:drop-shadow(0 20px 35px #7aa66430) drop-shadow(0 0 5px #8ee8ad24);animation:spirit-hover 7s ease-in-out infinite;will-change:transform,filter}
+.spirit-bottle-trigger{position:absolute;z-index:2;width:min(390px,42vw);height:min(390px,42vw);padding:0;top:2px;left:35%;transform:translateX(-50%);border-radius:46%;filter:drop-shadow(0 20px 35px #7aa66430) drop-shadow(0 0 5px #8ee8ad24);animation:spirit-hover 7s ease-in-out infinite;will-change:transform,filter}
+.spirit-bottle-trigger:focus-visible{outline:2px solid #4b8b63;outline-offset:-24px}
+.spirit-bottle-motion{display:block;width:100%;height:100%;transform-origin:50% 73%;transition:transform .18s ease,filter .2s ease}
+.spirit-bottle{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none}
+.spirit-bottle-trigger:hover .spirit-bottle-motion{transform:translateY(-3px) scale(1.018);filter:brightness(1.035) saturate(1.06)}
+.spirit-bottle-trigger:active .spirit-bottle-motion{transform:translateY(4px) scale(.95)}
+.spirit-bottle-trigger.is-awake .spirit-bottle-motion,.garden.is-awake .spirit-bottle-motion{animation:spirit-awaken .76s cubic-bezier(.2,.8,.25,1) both}
+.spirit-burst{position:absolute;z-index:3;inset:16%;pointer-events:none}
+.spirit-burst>i{position:absolute;left:50%;top:53%;opacity:0;animation:spirit-particle .78s cubic-bezier(.14,.72,.3,1) var(--delay) both}
+.spirit-spark{width:8px;height:8px;border-radius:50%;background:#f5ffd1;box-shadow:0 0 7px 2px #a7f591,0 0 17px #62c87e}
+.spirit-leaf{width:11px;height:18px;border-radius:100% 0 100% 0;background:linear-gradient(135deg,#eaff9e,#65ad58);box-shadow:0 0 9px #88d97599}
+.spirit-ring{position:absolute;left:50%;top:53%;width:45%;aspect-ratio:1;border:1px solid #b9ef9c;border-radius:50%;opacity:0;transform:translate(-50%,-50%) scale(.4);box-shadow:0 0 12px #89de8370,inset 0 0 12px #89de8350;animation:spirit-ring .78s ease-out both}
+.spirit-ring.ring-two{animation-delay:.12s}
 .garden:after{content:'';position:absolute;left:16%;right:16%;bottom:54px;height:18px;border-radius:50%;background:radial-gradient(ellipse,#74a56a42 0%,transparent 70%);filter:blur(5px)}
-.spirit-message{position:absolute;right:8%;top:164px;width:172px;padding:17px 20px;border:1px solid #e2e7e1;border-radius:10px;background:#f8faf6aa;backdrop-filter:blur(6px);box-shadow:0 10px 30px #3859430a}
+.spirit-message{position:absolute;z-index:4;right:8%;top:164px;width:172px;padding:17px 20px;border:1px solid #e2e7e1;border-radius:10px;background:#f8faf6aa;backdrop-filter:blur(6px);box-shadow:0 10px 30px #3859430a;transition:border-color .25s ease,box-shadow .25s ease,transform .25s ease}
 .spirit-message strong{font:16px var(--serif);color:#294a3c}
 .spirit-message span{display:block;margin-top:10px;font-size:12px;line-height:1.7;color:#718077}
-.spirit-progress{position:absolute;left:4%;right:34%;bottom:43px;display:flex;align-items:center;gap:10px}
+.garden.is-awake .spirit-message{border-color:#b9d7bb;box-shadow:0 12px 34px #3d865b20}
+.spirit-progress{position:absolute;z-index:4;left:4%;right:34%;bottom:43px;display:flex;align-items:center;gap:10px}
 .spirit-progress>div{height:16px;flex:1;padding:3px;border-radius:10px;background:#d9e6d8aa}
 .spirit-progress i{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,#6ba071,#7dc57f);box-shadow:0 0 14px #76b97780}
+.garden.is-awake .spirit-progress i{animation:spirit-progress-glow .8s ease-out}
 .spirit-progress span{font:11px Georgia,serif;color:#6b806f}
-.garden>p{position:absolute;left:35%;bottom:13px;transform:translateX(-50%);font:13px var(--serif);color:#3f5c50;letter-spacing:.5px;white-space:nowrap}
+.garden>p{position:absolute;z-index:4;left:35%;bottom:13px;transform:translateX(-50%);font:13px var(--serif);color:#3f5c50;letter-spacing:.5px;white-space:nowrap}
 .hero-verse{position:absolute;right:3px;top:23px;font-family:var(--serif);color:#183e32;text-align:left}
 .hero-verse strong{font-size:21px;line-height:1.65;font-weight:500;letter-spacing:2px}
 .hero-verse span{display:block;margin-top:5px;font-size:11px;color:#718078}
@@ -506,6 +520,27 @@ body{background:#edf1ed;color:#31493f}
 @keyframes spirit-hover{
   0%,100%{transform:translateX(-50%);filter:drop-shadow(0 20px 35px #7aa66430) drop-shadow(0 0 5px #8ee8ad24)}
   50%{transform:translate(-50%,-7px) rotate(1deg);filter:drop-shadow(0 22px 38px #6cad7052) drop-shadow(0 0 18px #70e99a78)}
+}
+@keyframes spirit-awaken{
+  0%{transform:scale(.96) translateY(3px) rotate(0)}
+  28%{transform:scale(1.07) translateY(-5px) rotate(-3deg);filter:brightness(1.12) saturate(1.12)}
+  48%{transform:scale(1.02) translateY(-2px) rotate(2.5deg)}
+  68%{transform:scale(1.01) rotate(-1.4deg)}
+  84%{transform:scale(1.005) rotate(.7deg)}
+  100%{transform:scale(1) translateY(0) rotate(0);filter:none}
+}
+@keyframes spirit-particle{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.2) rotate(0)}
+  18%{opacity:1}
+  100%{opacity:0;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) scale(.75) rotate(var(--r))}
+}
+@keyframes spirit-ring{
+  0%{opacity:.8;transform:translate(-50%,-50%) scale(.3)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(1.8)}
+}
+@keyframes spirit-progress-glow{
+  0%,100%{filter:none}
+  35%{filter:brightness(1.3);box-shadow:0 0 22px #78cf83}
 }
 
 /* Notes library follows the same paper-and-ink system. */
@@ -551,5 +586,74 @@ body{background:#edf1ed;color:#31493f}
 }
 @media(max-width:680px){
   .sidebar{width:63px;padding:0 9px}.brand>span,.sidebar-caption,.new-note-button>span,.sidebar-quote,.vault-indicator>span,.sidebar nav>button>span{display:none}.brand{padding:0 6px}.new-note-button{width:45px;justify-content:center;padding:0}.main-shell{margin-left:63px;width:calc(100% - 63px)}.topbar{padding:0 18px}
-  .dashboard{padding:20px 18px}.hero h1{font-size:34px!important}.hero-stats{flex-wrap:wrap}.spirit-bottle{left:50%;width:330px;height:330px}.spirit-progress{left:15%;right:15%}.garden>p{left:50%}.spirit-message{display:none}.recent-note-grid{grid-template-columns:1fr}.library{padding:28px 18px}.library-heading h1{font-size:36px}.library-actions{width:100%}.library-heading .button{flex:1;padding:0 8px}.library-controls{height:auto}.search-field{width:100%}.note-grid{grid-template-columns:1fr}
+  .dashboard{padding:20px 18px}.hero h1{font-size:34px!important}.hero-stats{flex-wrap:wrap}.spirit-bottle-trigger{left:50%;width:330px;height:330px}.spirit-progress{left:15%;right:15%}.garden>p{left:50%}.spirit-message{display:none}.recent-note-grid{grid-template-columns:1fr}.library{padding:28px 18px}.library-heading h1{font-size:36px}.library-actions{width:100%}.library-heading .button{flex:1;padding:0 8px}.library-controls{height:auto}.search-field{width:100%}.note-grid{grid-template-columns:1fr}
+}
+
+/* Keep the desktop spirit realm as a single, balanced viewport. */
+@media(min-width:951px){
+  .dashboard{
+    height:calc(100vh - 78px)!important;
+    min-height:0;
+    display:grid;
+    grid-template-rows:auto minmax(0,1fr) clamp(184px,25vh,226px) auto;
+    gap:clamp(8px,1.25vh,14px);
+    padding:clamp(14px,2.5vh,26px) 40px clamp(12px,2vh,22px);
+    overflow:hidden;
+  }
+  .home-topline{height:clamp(22px,3vh,28px)}
+  .hero{
+    height:100%;
+    min-height:0!important;
+    grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);
+    overflow:visible;
+  }
+  .hero-copy{min-width:0;padding:clamp(5px,1.4vh,16px) 0 5px 2px!important}
+  .hero h1{font-size:clamp(32px,3vw,48px)!important}
+  .hero-description{margin-top:clamp(7px,1.3vh,13px)!important}
+  .hero-stats{margin:clamp(12px,2.2vh,22px) 0!important}
+  .hero-stats>div{min-width:0;flex:1;margin-right:clamp(10px,1.5vw,25px);padding-right:clamp(10px,1.5vw,25px)}
+  .hero-stats strong{font-size:clamp(29px,2.55vw,37px)!important}
+  .hero-cta{height:clamp(40px,5.6vh,50px)}
+  .garden{min-height:0;overflow:hidden}
+  .spirit-bottle-trigger{width:min(clamp(255px,34vh,350px),32vw);height:min(clamp(255px,34vh,350px),32vw);top:46%;left:31%;transform:translate(-50%,-50%);animation-name:spirit-hover-viewport}
+  .spirit-message{top:50%;transform:translateY(-50%)}
+  .spirit-progress{bottom:clamp(30px,4.6vh,43px)}
+  .garden>p{bottom:clamp(2px,1.35vh,13px)}
+  .hero-verse{top:clamp(4px,2vh,23px)}
+  .cultivation-grid{height:100%;min-height:0;margin:0;grid-template-columns:1.06fr 1.22fr .92fr;gap:clamp(11px,1.25vw,18px)}
+  .dashboard-card{height:100%;min-height:0;padding:clamp(13px,1.8vh,18px) clamp(15px,1.6vw,23px)}
+  .practice-list{margin-top:clamp(7px,1.2vh,13px)}
+  .practice-list>button{height:clamp(27px,3.6vh,34px)}
+  .daily-practice>p{margin-top:clamp(6px,1.1vh,12px)}
+  .practice-trail .activity-calendar{margin-top:clamp(8px,1.6vh,18px)}
+  .practice-trail footer{margin-top:clamp(7px,1.2vh,14px)}
+  .inspiration-card{display:block}
+  .inspiration-card blockquote{margin-top:clamp(15px,2.7vh,31px);font-size:clamp(14px,1.25vw,17px)}
+  .recent-notes{min-height:0;margin:0}
+  .recent-notes>header{height:clamp(24px,3.3vh,31px)}
+  .recent-note-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(10px,1.1vw,16px);margin-top:clamp(5px,1vh,10px)}
+  .recent-note-grid>button,.recent-empty{height:clamp(52px,7.6vh,68px);margin-top:clamp(5px,1vh,10px)}
+  .recent-note-grid>button{margin-top:0}
+}
+
+@keyframes spirit-hover-viewport{
+  0%,100%{transform:translate(-50%,-50%);filter:drop-shadow(0 20px 35px #7aa66430) drop-shadow(0 0 5px #8ee8ad24)}
+  50%{transform:translate(-50%,calc(-50% - 7px)) rotate(1deg);filter:drop-shadow(0 22px 38px #6cad7052) drop-shadow(0 0 18px #70e99a78)}
+}
+
+@media(min-width:951px) and (max-height:760px){
+  .dashboard{grid-template-rows:auto minmax(0,1fr) 176px auto;gap:7px;padding-top:11px;padding-bottom:10px}
+  .home-topline{height:21px;font-size:11px}.home-topline time{font-size:10px}
+  .hero h1{font-size:30px!important;line-height:1.25!important;letter-spacing:2px}
+  .hero-description{font-size:11px!important;line-height:1.65!important;margin-top:5px!important}
+  .hero-stats{margin:9px 0!important}.hero-stats strong{font-size:27px!important}.hero-stats p{font-size:9px!important;margin-top:5px}
+  .hero-cta{width:236px;height:37px;font-size:12px}.hero-footnote{margin-top:6px;font-size:9px}
+  .spirit-bottle-trigger{width:min(248px,31vw);height:min(248px,31vw)}
+  .spirit-message{width:142px;padding:12px 14px}.spirit-message strong{font-size:13px}.spirit-message span{margin-top:6px;font-size:10px}
+  .spirit-progress{bottom:27px}.garden>p{bottom:0;font-size:11px}.hero-verse strong{font-size:17px}.hero-verse span{font-size:9px}
+  .dashboard-card{padding:11px 15px}.dashboard-card h2,.recent-notes h2{font-size:14px}.dashboard-card header>button,.dashboard-card header>span{font-size:9px}
+  .practice-list{margin-top:5px}.practice-list>button{height:25px;font-size:10px}.practice-list>button i{width:14px;height:14px}.practice-list>button time{font-size:8px}.daily-practice>p{margin-top:5px;font-size:9px}
+  .practice-trail .activity-calendar{margin-top:5px}.practice-trail .heat-cell{height:9px}.practice-trail footer{margin-top:4px;font-size:8px}.practice-trail footer strong{font-size:22px}.practice-trail footer small{font-size:8px}
+  .inspiration-card blockquote{margin:12px 8px 0;font-size:13px;line-height:1.65}.inspiration-card cite{margin-top:6px;font-size:10px}
+  .recent-notes>header{height:22px}.recent-note-grid>button,.recent-empty{height:48px}.recent-note-grid>button{padding:7px 10px}.recent-note-grid>button>svg{width:29px;height:29px}.recent-note-grid>button>span{gap:3px}.recent-note-grid em{padding:3px 5px;font-size:8px}
 }
