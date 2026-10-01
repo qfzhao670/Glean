@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, BookOpen, Check, ChevronRight, FileText, FolderOpen, Leaf, LoaderCircle, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings2, Sprout, X } from 'lucide-react';
+import { ArrowUpRight, BookOpen, Check, ChevronRight, FileText, Folder as FolderIcon, FolderOpen, Leaf, LoaderCircle, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings2, Sprout, X } from 'lucide-react';
 import { api, post, streamJobUpdates, type Folder, type Job, type Note, type Settings, type Stats } from './api';
 import { currentJobs } from './jobs';
 import CreateModal from './components/CreateModal';
@@ -21,6 +21,8 @@ export default function App() {
   const [libraryFilter, setLibraryFilter] = useState<LibraryFilter>('all');
   const [libraryFolder, setLibraryFolder] = useState<string | null>(null);
   const [noteSwitcherCollapsed, setNoteSwitcherCollapsed] = useState(() => localStorage.getItem('glean-note-switcher-collapsed') === '1');
+  const [noteTreeExpanded, setNoteTreeExpanded] = useState(true);
+  const [collapsedNoteFolders, setCollapsedNoteFolders] = useState<Set<string>>(new Set());
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const watchedJobs = useRef(new Set<string>());
   const pendingGenerationJobs = useRef(new Set<string>());
@@ -66,6 +68,18 @@ export default function App() {
     }
   }, [jobs, refresh]);
   useEffect(() => { const handler = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); if (dirty && !window.confirm('还有未保存的修改，确定离开吗？')) return; setDirty(false); setGeneratingJob(null); setPage('notes'); setSelected(null); setTimeout(() => document.querySelector<HTMLInputElement>('[aria-label="搜索笔记"]')?.focus(), 50); } if ((e.metaKey || e.ctrlKey) && e.key === 'n') { e.preventDefault(); setModal('txt'); } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, [dirty]);
+  useEffect(() => {
+    if (!selected) return;
+    setNoteTreeExpanded(true);
+    const selectedFolder = notes.find(note => note.id === selected)?.folder_id;
+    if (!selectedFolder) return;
+    setCollapsedNoteFolders(previous => {
+      if (!previous.has(selectedFolder)) return previous;
+      const next = new Set(previous);
+      next.delete(selectedFolder);
+      return next;
+    });
+  }, [notes, selected]);
   const canLeave = () => !dirty || window.confirm('还有未保存的修改，确定离开吗？');
   const navigate = (next: typeof page) => { if (!canLeave()) return; setDirty(false); setGeneratingJob(null); setPage(next); setSelected(null); };
   const openNote = (id: string, edit = false) => { if (!canLeave()) return; setDirty(false); setGeneratingJob(null); setEditNew(edit); setOpenNoteIds(previous => previous.includes(id) ? previous : [...previous, id]); setPage('notes'); setSelected(id); };
@@ -101,6 +115,22 @@ export default function App() {
   const visibleJobs = currentJobs(jobs, dismissedJobs);
   const ongoing = jobs.filter(j => ['queued', 'running'].includes(j.status));
   const dateLabel = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }).replace(/日(?=星期)/, '日 ');
+  const normalizedWorkspaceQuery = workspaceQuery.trim().toLocaleLowerCase();
+  const rootNotes = notes.filter(note => !note.folder_id && note.title.toLocaleLowerCase().includes(normalizedWorkspaceQuery));
+  const noteFolderBranches = folders.map(folder => {
+    const folderNotes = notes.filter(note => note.folder_id === folder.id);
+    const folderMatches = folder.name.toLocaleLowerCase().includes(normalizedWorkspaceQuery);
+    const visibleNotes = normalizedWorkspaceQuery && !folderMatches
+      ? folderNotes.filter(note => note.title.toLocaleLowerCase().includes(normalizedWorkspaceQuery))
+      : folderNotes;
+    return { folder, folderNotes, visibleNotes };
+  }).filter(({ folder, visibleNotes }) => !normalizedWorkspaceQuery || folder.name.toLocaleLowerCase().includes(normalizedWorkspaceQuery) || visibleNotes.length > 0);
+  const hasWorkspaceResults = rootNotes.length > 0 || noteFolderBranches.length > 0;
+  const toggleNoteFolder = (folderId: string) => setCollapsedNoteFolders(previous => {
+    const next = new Set(previous);
+    if (next.has(folderId)) next.delete(folderId); else next.add(folderId);
+    return next;
+  });
   return <div className={`app-shell ${selected ? 'note-focus' : ''}`}><aside className="sidebar"><div className="window-space"/><button className="brand" onClick={() => navigate('home')}><Logo/><span>拾知<small>Glean</small></span></button><div className="sidebar-caption">在这里，知识慢慢生长</div><button className="new-note-button" onClick={() => setModal('txt')}><Plus size={18}/>拾取新知<span>⌘ N</span></button><nav><button className={page === 'home' ? 'active' : ''} onClick={() => navigate('home')}><Sprout size={19}/>拾知灵境<ChevronRight size={14}/></button><button className={page === 'notes' ? 'active' : ''} onClick={() => navigate('notes')}><BookOpen size={19}/>我的笔记<span className="nav-count">{notes.length.toString().padStart(2, '0')}</span></button></nav>
     <div className="sidebar-bottom"><div className="sidebar-quote"><Leaf size={21} strokeWidth={1.1}/><p>不必急着成为森林。<br/>今天，长出一片新叶就好。</p><span>一点一滴，皆有所获。</span></div><button className={`sidebar-settings ${page === 'settings' ? 'active' : ''}`} onClick={() => navigate('settings')}><Settings2 size={18}/>设置</button><button className="vault-indicator" title="选择本地笔记仓库" onClick={chooseRepository}><FolderOpen size={16}/><span>{settings?.repository_path ? '本地笔记仓库' : '选择本地笔记仓库'}<small>{settings?.repository_path ? settings.repository_path.split(/[\\/]/).filter(Boolean).pop() : '点击选择保存文件夹'}</small></span><ArrowUpRight size={15}/></button></div></aside>
     <div className="main-shell"><header className="topbar"><div className="breadcrumb">我的空间 <span>/</span> <strong>{page === 'home' ? '拾知灵境' : page === 'settings' ? '设置' : generatingJob ? '笔记生成中' : selected ? '笔记详情' : '我的笔记'}</strong></div><div className="topbar-right"><button className={`task-indicator ${ongoing.length ? 'working' : ''}`} onClick={() => setShowJobs(!showJobs)}>{ongoing.length ? <LoaderCircle size={13} className="spin"/> : <span className="status-dot"/>}{ongoing.length ? `${ongoing.length} 份知识正在生长` : visibleJobs.length ? '当前任务未完成' : '拾知，日有所长'}</button><span className="topbar-separator"/><button className="profile" title="学习者的本地空间" onClick={() => navigate('settings')}>拾</button></div></header>
@@ -119,8 +149,20 @@ export default function App() {
         </div>
         <div className="note-switcher-heading"><Logo small/><div><strong>拾知笔记</strong><span>{notes.length} 篇</span></div></div>
         <label className="note-switcher-search"><Search size={14}/><input aria-label="在工作区搜索笔记" placeholder="搜索笔记" value={workspaceQuery} onChange={event => setWorkspaceQuery(event.target.value)}/></label>
-        <div className="note-switcher-folder"><ChevronRight size={13}/>全部笔记</div>
-        <nav className="note-switcher-list">{notes.filter(note => note.title.toLocaleLowerCase().includes(workspaceQuery.trim().toLocaleLowerCase())).map(note => <button key={note.id} className={note.id === selected ? 'active' : ''} onClick={() => openNote(note.id)} title={note.title}><FileText size={14}/><span>{note.title}</span></button>)}</nav>
+        <nav className="note-switcher-list" aria-label="笔记文件树">
+          <button className="note-switcher-folder note-switcher-root" aria-expanded={normalizedWorkspaceQuery ? true : noteTreeExpanded} onClick={() => setNoteTreeExpanded(previous => !previous)}><ChevronRight size={13}/>{normalizedWorkspaceQuery || noteTreeExpanded ? <FolderOpen size={14}/> : <FolderIcon size={14}/>}<span>全部笔记</span><b>{notes.length}</b></button>
+          {(normalizedWorkspaceQuery || noteTreeExpanded) && <div className="note-switcher-tree">
+            {noteFolderBranches.map(({ folder, folderNotes, visibleNotes }) => {
+              const folderExpanded = normalizedWorkspaceQuery ? true : !collapsedNoteFolders.has(folder.id);
+              return <div className="note-switcher-branch" key={folder.id}>
+                <button className="note-switcher-folder note-switcher-tree-row" aria-expanded={folderExpanded} onClick={() => toggleNoteFolder(folder.id)} title={folder.name}><ChevronRight size={12}/>{folderExpanded ? <FolderOpen size={14}/> : <FolderIcon size={14}/>}<span>{folder.name}</span><b>{folderNotes.length}</b></button>
+                {folderExpanded && <div className="note-switcher-children">{visibleNotes.map(note => <button key={note.id} className={`note-switcher-note ${note.id === selected ? 'active' : ''}`} onClick={() => openNote(note.id)} title={`${folder.name} / ${note.title}`}><FileText size={13}/><span>{note.title}</span></button>)}</div>}
+              </div>;
+            })}
+            {rootNotes.map(note => <button key={note.id} className={`note-switcher-note note-switcher-root-note ${note.id === selected ? 'active' : ''}`} onClick={() => openNote(note.id)} title={note.title}><FileText size={13}/><span>{note.title}</span></button>)}
+            {!hasWorkspaceResults && <p className="note-switcher-empty">没有匹配的笔记</p>}
+          </div>}
+        </nav>
         <button className="note-switcher-library" onClick={() => navigate('notes')}><BookOpen size={15}/>返回笔记库</button>
       </aside>
       <section className="note-workspace-main">
