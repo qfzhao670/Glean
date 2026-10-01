@@ -264,6 +264,20 @@
 @keyframes dashboard-enter{from{opacity:0}to{opacity:1}}
 
 /* Obsidian-like note workspace: note browser, closable tabs, then the document. */
+.app-shell.notes-library{height:100vh;overflow:hidden}
+.app-shell.notes-library>.main-shell{position:relative;height:100vh;min-height:0;display:flex;flex-direction:column}
+.app-shell.notes-library>.main-shell>.topbar,
+.app-shell.notes-library>.main-shell>.connection-error{flex-shrink:0}
+.app-shell.notes-library>.main-shell>main{flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;scrollbar-width:none}
+.app-shell.notes-library>.main-shell>main::-webkit-scrollbar{display:none}
+.library-overlay-scrollbar{position:absolute;z-index:60;right:3px;width:8px;padding:2px 1px;pointer-events:auto;opacity:0;transition:opacity .18s ease}
+.library-overlay-scrollbar.is-active,
+.library-overlay-scrollbar:hover,
+.library-overlay-scrollbar:focus-within{opacity:1}
+.library-overlay-scrollbar-thumb{width:6px;min-height:36px;border-radius:999px;background:rgba(80,91,82,.32);cursor:default;touch-action:none;transition:width .15s,background .15s}
+.library-overlay-scrollbar:hover .library-overlay-scrollbar-thumb,
+.library-overlay-scrollbar-thumb:focus-visible,
+.library-overlay-scrollbar-thumb:active{width:7px;background:rgba(80,91,82,.58)}
 .app-shell.note-focus>.sidebar,
 .app-shell.note-focus .topbar{display:none}
 .app-shell.note-focus>.main-shell{margin-left:0;width:100%}
@@ -340,9 +354,19 @@
 .app-shell.note-focus .note-toolbar .button.secondary:hover:not(:disabled){background:#f0f2ef}
 .app-shell.note-focus .note-columns{height:auto;flex:1;min-height:0;background:#fff}
 .app-shell.note-focus .note-columns.without-chat{display:block;overflow-y:auto}
-.app-shell.note-focus .note-document{width:min(800px,calc(100% - 96px));margin:0 auto;padding:40px 18px 120px;scrollbar-gutter:stable}
+.app-shell.note-focus .note-document{width:min(800px,calc(100% - 96px));margin:0 auto;padding:40px 18px 120px;scrollbar-gutter:auto}
 .app-shell.note-focus .note-columns.without-chat .note-document{height:auto;min-height:100%;overflow:visible}
 .app-shell.note-focus .note-columns:not(.without-chat) .note-document{width:min(800px,calc(100% - 56px));padding-left:24px;padding-right:24px}
+.app-shell.note-focus .note-columns.without-chat,
+.app-shell.note-focus .note-columns:not(.without-chat) .note-document{overflow-y:overlay;scrollbar-width:thin;scrollbar-color:rgba(80,91,82,.32) transparent}
+.app-shell.note-focus .note-columns.without-chat::-webkit-scrollbar,
+.app-shell.note-focus .note-columns:not(.without-chat) .note-document::-webkit-scrollbar{width:6px}
+.app-shell.note-focus .note-columns.without-chat::-webkit-scrollbar-track,
+.app-shell.note-focus .note-columns:not(.without-chat) .note-document::-webkit-scrollbar-track{background:transparent}
+.app-shell.note-focus .note-columns.without-chat::-webkit-scrollbar-thumb,
+.app-shell.note-focus .note-columns:not(.without-chat) .note-document::-webkit-scrollbar-thumb{background:rgba(80,91,82,.32);border-radius:999px}
+.app-shell.note-focus .note-columns.without-chat::-webkit-scrollbar-thumb:hover,
+.app-shell.note-focus .note-columns:not(.without-chat) .note-document::-webkit-scrollbar-thumb:hover{background:rgba(80,91,82,.55)}
 .app-shell.note-focus .chat-panel{padding:25px 22px 14px 24px;background:#fafbfa;border-left:1px solid #e5e8e5}
 .app-shell.note-focus .note-source,
 .app-shell.note-focus .note-source-line{display:none}
