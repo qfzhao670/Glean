@@ -215,6 +215,14 @@ export default function App() {
   }, [notes, selected]);
   const canLeave = () => !dirty || window.confirm('还有未保存的修改，确定离开吗？');
   const navigate = (next: typeof page) => { if (!canLeave()) return; setDirty(false); setGeneratingJob(null); setPage(next); setSelected(null); };
+  const navigateToNotesHome = () => {
+    if (!canLeave()) return;
+    setDirty(false);
+    setGeneratingJob(null);
+    setPage('notes');
+    setSelected(null);
+    setLibraryFolder(null);
+  };
   const openNote = (id: string, edit = false) => { if (!canLeave()) return; setDirty(false); setGeneratingJob(null); setEditNew(edit); setOpenNoteIds(previous => previous.includes(id) ? previous : [...previous, id]); setPage('notes'); setSelected(id); };
   const closeNote = (id: string) => {
     if (id === selected && !canLeave()) return;
@@ -265,7 +273,7 @@ export default function App() {
     return next;
   });
   const showingLibrary = page === 'notes' && !generatingJob && !selected;
-  return <div className={`app-shell ${selected ? 'note-focus' : showingLibrary ? 'notes-library' : ''}`}><aside className="sidebar"><div className="window-space"/><button className="brand" onClick={() => navigate('home')}><Logo/><span>拾知<small>Glean</small></span></button><div className="sidebar-caption">在这里，知识慢慢生长</div><button className="new-note-button" onClick={() => setModal('txt')}><Plus size={18}/>拾取新知<span>⌘ N</span></button><nav><button className={page === 'home' ? 'active' : ''} onClick={() => navigate('home')}><Sprout size={19}/>拾知灵境<ChevronRight size={14}/></button><button className={page === 'notes' ? 'active' : ''} onClick={() => navigate('notes')}><BookOpen size={19}/>我的笔记<span className="nav-count">{notes.length.toString().padStart(2, '0')}</span></button></nav>
+  return <div className={`app-shell ${selected ? 'note-focus' : showingLibrary ? 'notes-library' : ''}`}><aside className="sidebar"><div className="window-space"/><button className="brand" onClick={() => navigate('home')}><Logo/><span>拾知<small>Glean</small></span></button><div className="sidebar-caption">在这里，知识慢慢生长</div><button className="new-note-button" onClick={() => setModal('txt')}><Plus size={18}/>拾取新知<span>⌘ N</span></button><nav><button className={page === 'home' ? 'active' : ''} onClick={() => navigate('home')}><Sprout size={19}/>拾知灵境<ChevronRight size={14}/></button><button className={page === 'notes' ? 'active' : ''} onClick={navigateToNotesHome}><BookOpen size={19}/>我的笔记<span className="nav-count">{notes.length.toString().padStart(2, '0')}</span></button></nav>
     <div className="sidebar-bottom"><div className="sidebar-quote"><Leaf size={21} strokeWidth={1.1}/><p>不必急着成为森林。<br/>今天，长出一片新叶就好。</p><span>一点一滴，皆有所获。</span></div><button className={`sidebar-settings ${page === 'settings' ? 'active' : ''}`} onClick={() => navigate('settings')}><Settings2 size={18}/>设置</button><button className="vault-indicator" title="选择本地笔记仓库" onClick={chooseRepository}><FolderOpen size={16}/><span>{settings?.repository_path ? '本地笔记仓库' : '选择本地笔记仓库'}<small>{settings?.repository_path ? settings.repository_path.split(/[\\/]/).filter(Boolean).pop() : '点击选择保存文件夹'}</small></span><ArrowUpRight size={15}/></button></div></aside>
     <div className="main-shell"><header className="topbar"><div className="breadcrumb">我的空间 <span>/</span> <strong>{page === 'home' ? '拾知灵境' : page === 'settings' ? '设置' : generatingJob ? '笔记生成中' : selected ? '笔记详情' : '我的笔记'}</strong></div><div className="topbar-right"><button className={`task-indicator ${ongoing.length ? 'working' : ''}`} onClick={() => setShowJobs(!showJobs)}>{ongoing.length ? <LoaderCircle size={13} className="spin"/> : <span className="status-dot"/>}{ongoing.length ? `${ongoing.length} 份知识正在生长` : visibleJobs.length ? '当前任务未完成' : '拾知，日有所长'}</button><span className="topbar-separator"/><button className="profile" title="学习者的本地空间" onClick={() => navigate('settings')}>拾</button></div></header>
     {error && <div className="connection-error" role="alert">{error}<button onClick={refresh}>重新连接</button></div>}
