@@ -139,7 +139,7 @@ export default function CompanionChat({ onOpenNote }: { onOpenNote: (id: string)
       {pendingQuestion && <div className="companion-turn assistant-turn"><span className={`${avatarClass} small`}/><div className="companion-bubble assistant answer">{answer ? <Markdown text={answer}/> : <div className="companion-thinking"><i/><i/><i/><span>正在查阅笔记…</span></div>}</div></div>}
     </div>
 
-    <aside className={`companion-sources ${referenceState}`} aria-label="参考来源">
+    {hasConversation && !loading && <aside className={`companion-sources ${referenceState}`} aria-label="参考来源">
       <header><span>参考来源</span>{sources.length > 0 && <b>{sources.length}</b>}<ChevronUp size={15}/></header>
       {sources.map((source, index) => <button className="companion-source-card" key={source.note_id} onClick={() => onOpenNote(source.note_id)}>
         <span className="source-file-icon"><FileText size={18}/><i>{index + 1}</i></span>
@@ -147,7 +147,7 @@ export default function CompanionChat({ onOpenNote }: { onOpenNote: (id: string)
       </button>)}
       {referenceState === 'missing' && <div className="companion-no-source"><BookOpen size={20}/><strong>知识库中没有相关内容</strong><p>本次由大模型基于通用知识回答，不会伪造笔记来源。</p></div>}
       {referenceState === 'idle' && <div className="companion-no-source idle"><BookOpen size={20}/><p>回答所依据的个人笔记会显示在这里。</p></div>}
-    </aside>
+    </aside>}
 
     <form className="companion-composer" onSubmit={submit}>
       <textarea aria-label="向红颜知音提问" value={question} onChange={event => setQuestion(event.target.value)} onKeyDown={useComposerKeys} placeholder="输入你的问题，或直接求助我…" rows={2} disabled={busy}/>
