@@ -384,6 +384,64 @@ def stream_chat(note_id: str, value: ChatInput):
     })
 
 
+@app.get('/api/rag/history')
+def rag_history():
+    values = store.rows('SELECT id,role,content,sources,grounded,created_at FROM rag_messages ORDER BY created_at')
+    for value in values:
+        try:
+            value['sources'] = json.loads(value['sources'])
+        except (TypeError, json.JSONDecodeError):
+            value['sources'] = []
+        value['grounded'] = bool(value['grounded'])
+    return values[-80:]
+
+
+@app.delete('/api/rag/history')
+def clear_rag_history():
+    with store.db() as c:
+        c.execute('DELETE FROM rag_messages')
+    return {'ok': True}
+
+
+@app.post('/api/rag/chat/stream')
+def stream_rag_chat(value: ChatInput):
+    notes = store.rows('SELECT id,title,content FROM notes ORDER BY updated_at DESC')
+    history = store.rows('SELECT role,content FROM rag_messages ORDER BY created_at DESC LIMIT 12')[::-1]
+    config = store.settings(True)
+
+    def event(kind, **values):
+        return json.dumps({'type': kind, **values}, ensure_ascii=False) + '\n'
+
+    def generate():
+        answer_parts, sources, grounded = [], [], False
+        try:
+            for item in ai.rag_chat_stream(notes, history, value.message, config):
+                if item['type'] == 'sources':
+                    sources = item['sources']
+                    grounded = item['grounded']
+                    yield event('sources', sources=sources, grounded=grounded)
+                elif item['type'] == 'delta':
+                    answer_parts.append(item['content'])
+                    yield event('delta', content=item['content'])
+            answer = ''.join(answer_parts).strip()
+            if not answer:
+                raise ValueError('模型返回的回答为空，请重试。')
+            with store.db() as c:
+                c.execute('INSERT INTO rag_messages VALUES (?,?,?,?,?,?)',
+                          (store.uid(), 'user', value.message, '[]', 0, store.now()))
+                c.execute('INSERT INTO rag_messages VALUES (?,?,?,?,?,?)',
+                          (store.uid(), 'assistant', answer, json.dumps(sources, ensure_ascii=False), int(grounded), store.now()))
+            yield event('done')
+        except ValueError as exc:
+            yield event('error', message=str(exc))
+        except Exception:
+            yield event('error', message='对话未完成，请重试。')
+
+    return StreamingResponse(generate(), media_type='application/x-ndjson', headers={
+        'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+    })
+
+
 @app.get('/api/jobs')
 def jobs():
     return store.rows('SELECT id,status,stage,progress,title,kind,error,note_id,created_at FROM jobs ORDER BY created_at DESC LIMIT 40')

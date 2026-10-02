@@ -35,6 +35,59 @@ def test_patch_unique_anchor_and_restore(client):
     assert client.get('/api/stats').json()['patches'] == 1
 
 
+def test_lightweight_rag_retrieves_relevant_notes_and_rejects_unrelated_ones():
+    notes = [
+        {'id': 'agent-note', 'title': 'Agent 基础概念', 'content': '# Agent\n\nAgent 包含规划、记忆、工具和行动执行。'},
+        {'id': 'tea-note', 'title': '白茶冲泡', 'content': '# 白茶\n\n建议使用九十度热水冲泡。'},
+    ]
+    found = ai.retrieve_notes(notes, '我关于 Agent 的笔记主要讲了哪些内容？')
+    assert [item['note_id'] for item in found] == ['agent-note']
+    assert ai.retrieve_notes(notes, '量子纠缠有哪些实验？') == []
+
+
+def test_rag_stream_returns_sources_and_persists_conversation(client):
+    note_id = store.create_note('Agent 工具', '# Agent 工具\n\n工具让 Agent 能够调用外部能力。', '', '', 'manual')
+
+    def fake_rag(notes, history, question, config):
+        assert notes[0]['id'] == note_id
+        assert history == []
+        assert question == '工具有什么作用？'
+        yield {'type': 'sources', 'sources': [{
+            'note_id': note_id, 'title': 'Agent 工具', 'section': 'Agent 工具', 'excerpt': '工具让 Agent 能够调用外部能力。',
+        }], 'grounded': True}
+        yield {'type': 'delta', 'content': '工具用于连接外部能力。[1]'}
+
+    with patch.object(ai, 'rag_chat_stream', side_effect=fake_rag):
+        with client.stream('POST', '/api/rag/chat/stream', json={'message': '工具有什么作用？'}) as response:
+            events = [json.loads(line) for line in response.iter_lines() if line]
+    assert response.status_code == 200
+    assert events[0]['type'] == 'sources' and events[0]['grounded'] is True
+    assert events[-1]['type'] == 'done'
+    history = client.get('/api/rag/history').json()
+    assert [item['role'] for item in history] == ['user', 'assistant']
+    assert history[-1]['sources'][0]['note_id'] == note_id
+    assert history[-1]['grounded'] is True
+    assert client.delete('/api/rag/history').json() == {'ok': True}
+    assert client.get('/api/rag/history').json() == []
+
+
+def test_rag_stream_has_no_token_cap_and_continues_provider_truncation():
+    calls = []
+    def fake_stream(messages, _config, max_tokens=5000):
+        calls.append((messages, max_tokens))
+        if len(calls) == 1:
+            yield '第一部分。[1]'
+            raise ai.OutputLimitError('服务端截断')
+        yield '第二部分。[1]'
+
+    notes = [{'id': 'agent', 'title': 'Agent', 'content': '# Agent\n规划与工具。'}]
+    with patch.object(ai, 'completion_stream', side_effect=fake_stream):
+        events = list(ai.rag_chat_stream(notes, [], 'Agent 有哪些组成？', store.settings(True)))
+    assert ''.join(item['content'] for item in events if item['type'] == 'delta') == '第一部分。[1]第二部分。[1]'
+    assert [maximum for _, maximum in calls] == [None, None]
+    assert calls[1][0][-1]['content'].startswith('刚才的回答被模型服务截断')
+
+
 def test_ambiguous_patch_and_duplicate_are_rejected():
     value = {'anchor': '同一行', 'title': '解释', 'body': '补充解释'}
     assert ai.apply_patch('同一行\n同一行\n', value) is None

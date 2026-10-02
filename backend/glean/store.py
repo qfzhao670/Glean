@@ -63,6 +63,9 @@ def init():
           id TEXT PRIMARY KEY, note_id TEXT, content TEXT, reason TEXT, created_at TEXT);
         CREATE TABLE IF NOT EXISTS messages (
           id TEXT PRIMARY KEY, note_id TEXT, role TEXT, content TEXT, patch TEXT DEFAULT '', created_at TEXT);
+        CREATE TABLE IF NOT EXISTS rag_messages (
+          id TEXT PRIMARY KEY, role TEXT, content TEXT, sources TEXT DEFAULT '[]',
+          grounded INTEGER DEFAULT 0, created_at TEXT);
         CREATE TABLE IF NOT EXISTS events (
           id TEXT PRIMARY KEY, kind TEXT, note_id TEXT, created_at TEXT);
         CREATE TABLE IF NOT EXISTS knowledge_links (
