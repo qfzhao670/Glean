@@ -157,10 +157,11 @@ export default function CompanionChat({ onOpenNote, wallpaperMode, onWallpaperMo
 
   const avatarClass = `companion-avatar theme-${theme}`;
 
-  return <section className={`companion-page theme-${theme} ${wallpaperMode ? 'wallpaper-mode' : 'page-enter'}`} aria-label={wallpaperMode ? '红颜知音全屏壁纸' : '红颜知音笔记问答'}>
+  return <section className={`companion-page page-enter theme-${theme} ${wallpaperMode ? 'wallpaper-mode' : ''}`} aria-label={wallpaperMode ? '红颜知音全屏壁纸' : '红颜知音笔记问答'}>
     {previousTheme && <div className={`companion-background previous theme-${previousTheme}`} aria-hidden="true"/>}
     <div key={theme} className={`companion-background current theme-${theme}`} aria-hidden="true" onAnimationEnd={() => setPreviousTheme(null)}/>
-    {wallpaperMode ? <button className="companion-wallpaper-exit" onClick={hideWallpaper} aria-label="退出壁纸模式" title="退出壁纸模式（Esc）"><Minimize2 size={18}/><span>退出壁纸</span></button> : <>
+    <button className="companion-wallpaper-exit" onClick={hideWallpaper} aria-label="退出壁纸模式" aria-hidden={!wallpaperMode} tabIndex={wallpaperMode ? 0 : -1} title="退出壁纸模式（Esc）"><Minimize2 size={18}/><span>退出壁纸</span></button>
+    <div className="companion-interface" aria-hidden={wallpaperMode} inert={wallpaperMode ? true : undefined}>
     <div className="companion-shade"/>
     <div className="companion-title"><Heart size={15}/><span>红颜知音</span><small>与你共读每一页心事</small></div>
     <button className="companion-wallpaper-button" onClick={showWallpaper} title="隐藏界面，全屏欣赏当前背景"><Expand size={16}/>欣赏壁纸</button>
@@ -204,6 +205,6 @@ export default function CompanionChat({ onOpenNote, wallpaperMode, onWallpaperMo
         <footer>{confirmClear ? <><span>确定清空全部对话吗？</span><button className="danger" onClick={() => void clearHistory()}>确认清空</button><button onClick={() => setConfirmClear(false)}>取消</button></> : <button className="clear-chat" onClick={() => setConfirmClear(true)}><Trash2 size={15}/>清空对话记录</button>}</footer>
       </section>
     </div>}
-    </>}
+    </div>
   </section>;
 }
