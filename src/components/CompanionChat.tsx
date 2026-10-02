@@ -38,6 +38,7 @@ export default function CompanionChat({ onOpenNote }: { onOpenNote: (id: string)
     const saved = localStorage.getItem('glean-companion-theme');
     return saved === 'yuexia' || saved === 'feiyan' ? saved : 'chuntang';
   });
+  const [previousTheme, setPreviousTheme] = useState<CompanionTheme | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,6 +56,12 @@ export default function CompanionChat({ onOpenNote }: { onOpenNote: (id: string)
     const container = scrollRef.current;
     if (container) container.scrollTo({ top: container.scrollHeight, behavior: answer ? 'auto' : 'smooth' });
   }, [messages, pendingQuestion, answer]);
+
+  useEffect(() => {
+    if (!previousTheme) return;
+    const timer = window.setTimeout(() => setPreviousTheme(null), 550);
+    return () => window.clearTimeout(timer);
+  }, [previousTheme, theme]);
 
   async function ask(text: string) {
     const prompt = text.trim();
@@ -111,6 +118,8 @@ export default function CompanionChat({ onOpenNote }: { onOpenNote: (id: string)
   }
 
   function chooseTheme(next: CompanionTheme) {
+    if (next === theme) return;
+    setPreviousTheme(theme);
     setTheme(next);
     localStorage.setItem('glean-companion-theme', next);
   }
@@ -120,23 +129,25 @@ export default function CompanionChat({ onOpenNote }: { onOpenNote: (id: string)
 
   const avatarClass = `companion-avatar theme-${theme}`;
 
-  return <section className={`companion-page theme-${theme}`} aria-label="红颜知音笔记问答">
+  return <section className={`companion-page theme-${theme} page-enter`} aria-label="红颜知音笔记问答">
+    {previousTheme && <div className={`companion-background previous theme-${previousTheme}`} aria-hidden="true"/>}
+    <div key={theme} className={`companion-background current theme-${theme}`} aria-hidden="true" onAnimationEnd={() => setPreviousTheme(null)}/>
     <div className="companion-shade"/>
     <div className="companion-title"><Heart size={15}/><span>红颜知音</span><small>与你共读每一页心事</small></div>
     <button className="companion-settings-button" onClick={() => setSettingsOpen(true)}><Settings2 size={16}/>对话设置</button>
 
     <div className="companion-conversation" ref={scrollRef}>
       {!hasConversation && !loading && <div className="companion-welcome">
-        <div className={avatarClass} aria-hidden="true"/>
+        <div key={theme} className={avatarClass} aria-hidden="true"/>
         <div className="companion-bubble assistant"><strong>有什么想问的吗？</strong><p>我会结合你的个人笔记，与你一起思考。</p></div>
         <div className="companion-suggestions">{suggestions.map(item => <button key={item} onClick={() => void ask(item)}>{item}</button>)}</div>
       </div>}
       {loading && <div className="companion-loading"><LoaderCircle className="spin" size={20}/>正在翻阅你的笔记…</div>}
       {messages.map(message => message.role === 'user'
         ? <div className="companion-turn user-turn" key={message.id}><div className="companion-bubble user">{message.content}</div><span className="companion-user-avatar">拾</span></div>
-        : <div className="companion-turn assistant-turn" key={message.id}><span className={`${avatarClass} small`}/><div className="companion-bubble assistant answer"><Markdown text={message.content}/>{message.grounded ? <span className="knowledge-state"><BookOpen size={12}/>已参考 {message.sources.length} 篇个人笔记</span> : <span className="knowledge-state missing">知识库未命中 · 本回答来自模型通用知识</span>}</div></div>)}
+        : <div className="companion-turn assistant-turn" key={message.id}><span key={theme} className={`${avatarClass} small`}/><div className="companion-bubble assistant answer"><Markdown text={message.content}/>{message.grounded ? <span className="knowledge-state"><BookOpen size={12}/>已参考 {message.sources.length} 篇个人笔记</span> : <span className="knowledge-state missing">知识库未命中 · 本回答来自模型通用知识</span>}</div></div>)}
       {pendingQuestion && <div className="companion-turn user-turn"><div className="companion-bubble user">{pendingQuestion}</div><span className="companion-user-avatar">拾</span></div>}
-      {pendingQuestion && <div className="companion-turn assistant-turn"><span className={`${avatarClass} small`}/><div className="companion-bubble assistant answer">{answer ? <Markdown text={answer}/> : <div className="companion-thinking"><i/><i/><i/><span>正在查阅笔记…</span></div>}</div></div>}
+      {pendingQuestion && <div className="companion-turn assistant-turn"><span key={theme} className={`${avatarClass} small`}/><div className="companion-bubble assistant answer">{answer ? <Markdown text={answer}/> : <div className="companion-thinking"><i/><i/><i/><span>正在查阅笔记…</span></div>}</div></div>}
     </div>
 
     {hasConversation && !loading && <aside className={`companion-sources ${referenceState}`} aria-label="参考来源">
