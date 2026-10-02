@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { AtSign, BookOpen, Check, ChevronUp, FileText, Heart, LoaderCircle, Paperclip, Send, Settings2, Trash2, X } from 'lucide-react';
+import { AtSign, BookOpen, Check, ChevronUp, Expand, FileText, Heart, LoaderCircle, Minimize2, Paperclip, Send, Settings2, Trash2, X } from 'lucide-react';
 import { api, streamJsonLines, type RagMessage, type RagSource } from '../api';
 import Markdown from './Markdown';
 
@@ -15,14 +15,22 @@ const suggestions = [
   '根据笔记，帮我梳理一份下一步行动清单',
 ];
 
-type CompanionTheme = 'chuntang' | 'yuexia' | 'feiyan';
+type CompanionTheme = 'chuntang' | 'yuexia' | 'feiyan' | 'yunqu' | 'bilan';
 const companionThemes: { id: CompanionTheme; name: string; description: string }[] = [
   { id: 'chuntang', name: '春棠', description: '春日花亭，在明媚山水间陪你舒展思绪' },
   { id: 'yuexia', name: '月华', description: '月下倚窗，在清冷夜色里陪你静心思考' },
   { id: 'feiyan', name: '绯颜', description: '红衣临水，在烂漫春光里陪你捕捉灵感' },
+  { id: 'yunqu', name: '云阙', description: '月照云海，在澄澈仙境里陪你悠然畅想' },
+  { id: 'bilan', name: '碧岚', description: '蝶栖指尖，在青山飞瀑间陪你自在遐思' },
 ];
 
-export default function CompanionChat({ onOpenNote }: { onOpenNote: (id: string) => void }) {
+type CompanionChatProps = {
+  onOpenNote: (id: string) => void;
+  wallpaperMode: boolean;
+  onWallpaperModeChange: (active: boolean) => void;
+};
+
+export default function CompanionChat({ onOpenNote, wallpaperMode, onWallpaperModeChange }: CompanionChatProps) {
   const [messages, setMessages] = useState<RagMessage[]>([]);
   const [question, setQuestion] = useState('');
   const [pendingQuestion, setPendingQuestion] = useState('');
@@ -36,7 +44,7 @@ export default function CompanionChat({ onOpenNote }: { onOpenNote: (id: string)
   const [confirmClear, setConfirmClear] = useState(false);
   const [theme, setTheme] = useState<CompanionTheme>(() => {
     const saved = localStorage.getItem('glean-companion-theme');
-    return saved === 'yuexia' || saved === 'feiyan' ? saved : 'chuntang';
+    return saved === 'yuexia' || saved === 'feiyan' || saved === 'yunqu' || saved === 'bilan' ? saved : 'chuntang';
   });
   const [previousTheme, setPreviousTheme] = useState<CompanionTheme | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -62,6 +70,17 @@ export default function CompanionChat({ onOpenNote }: { onOpenNote: (id: string)
     const timer = window.setTimeout(() => setPreviousTheme(null), 550);
     return () => window.clearTimeout(timer);
   }, [previousTheme, theme]);
+
+  useEffect(() => {
+    if (!wallpaperMode) return;
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') onWallpaperModeChange(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onWallpaperModeChange, wallpaperMode]);
 
   async function ask(text: string) {
     const prompt = text.trim();
@@ -124,16 +143,27 @@ export default function CompanionChat({ onOpenNote }: { onOpenNote: (id: string)
     localStorage.setItem('glean-companion-theme', next);
   }
 
+  function showWallpaper() {
+    setSettingsOpen(false);
+    onWallpaperModeChange(true);
+  }
+
+  function hideWallpaper() {
+    onWallpaperModeChange(false);
+  }
+
   const hasConversation = messages.length > 0 || Boolean(pendingQuestion);
   const referenceState = grounded === false ? 'missing' : sources.length ? 'grounded' : 'idle';
 
   const avatarClass = `companion-avatar theme-${theme}`;
 
-  return <section className={`companion-page theme-${theme} page-enter`} aria-label="红颜知音笔记问答">
+  return <section className={`companion-page theme-${theme} ${wallpaperMode ? 'wallpaper-mode' : 'page-enter'}`} aria-label={wallpaperMode ? '红颜知音全屏壁纸' : '红颜知音笔记问答'}>
     {previousTheme && <div className={`companion-background previous theme-${previousTheme}`} aria-hidden="true"/>}
     <div key={theme} className={`companion-background current theme-${theme}`} aria-hidden="true" onAnimationEnd={() => setPreviousTheme(null)}/>
+    {wallpaperMode ? <button className="companion-wallpaper-exit" onClick={hideWallpaper} aria-label="退出壁纸模式" title="退出壁纸模式（Esc）"><Minimize2 size={18}/><span>退出壁纸</span></button> : <>
     <div className="companion-shade"/>
     <div className="companion-title"><Heart size={15}/><span>红颜知音</span><small>与你共读每一页心事</small></div>
+    <button className="companion-wallpaper-button" onClick={showWallpaper} title="隐藏界面，全屏欣赏当前背景"><Expand size={16}/>欣赏壁纸</button>
     <button className="companion-settings-button" onClick={() => setSettingsOpen(true)}><Settings2 size={16}/>对话设置</button>
 
     <div className="companion-conversation" ref={scrollRef}>
@@ -174,5 +204,6 @@ export default function CompanionChat({ onOpenNote }: { onOpenNote: (id: string)
         <footer>{confirmClear ? <><span>确定清空全部对话吗？</span><button className="danger" onClick={() => void clearHistory()}>确认清空</button><button onClick={() => setConfirmClear(false)}>取消</button></> : <button className="clear-chat" onClick={() => setConfirmClear(true)}><Trash2 size={15}/>清空对话记录</button>}</footer>
       </section>
     </div>}
+    </>}
   </section>;
 }
