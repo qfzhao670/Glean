@@ -15,6 +15,13 @@ const suggestions = [
   '根据笔记，帮我梳理一份下一步行动清单',
 ];
 
+type CompanionTheme = 'chuntang' | 'yuexia' | 'feiyan';
+const companionThemes: { id: CompanionTheme; name: string; description: string }[] = [
+  { id: 'chuntang', name: '春棠', description: '春日花亭，在明媚山水间陪你舒展思绪' },
+  { id: 'yuexia', name: '月华', description: '月下倚窗，在清冷夜色里陪你静心思考' },
+  { id: 'feiyan', name: '绯颜', description: '红衣临水，在烂漫春光里陪你捕捉灵感' },
+];
+
 export default function CompanionChat({ onOpenNote }: { onOpenNote: (id: string) => void }) {
   const [messages, setMessages] = useState<RagMessage[]>([]);
   const [question, setQuestion] = useState('');
@@ -27,6 +34,10 @@ export default function CompanionChat({ onOpenNote }: { onOpenNote: (id: string)
   const [error, setError] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [theme, setTheme] = useState<CompanionTheme>(() => {
+    const saved = localStorage.getItem('glean-companion-theme');
+    return saved === 'yuexia' || saved === 'feiyan' ? saved : 'chuntang';
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -99,26 +110,33 @@ export default function CompanionChat({ onOpenNote }: { onOpenNote: (id: string)
     } catch (reason) { setError((reason as Error).message); }
   }
 
+  function chooseTheme(next: CompanionTheme) {
+    setTheme(next);
+    localStorage.setItem('glean-companion-theme', next);
+  }
+
   const hasConversation = messages.length > 0 || Boolean(pendingQuestion);
   const referenceState = grounded === false ? 'missing' : sources.length ? 'grounded' : 'idle';
 
-  return <section className="companion-page" aria-label="红颜知音笔记问答">
+  const avatarClass = `companion-avatar theme-${theme}`;
+
+  return <section className={`companion-page theme-${theme}`} aria-label="红颜知音笔记问答">
     <div className="companion-shade"/>
     <div className="companion-title"><Heart size={15}/><span>红颜知音</span><small>与你共读每一页心事</small></div>
     <button className="companion-settings-button" onClick={() => setSettingsOpen(true)}><Settings2 size={16}/>对话设置</button>
 
     <div className="companion-conversation" ref={scrollRef}>
       {!hasConversation && !loading && <div className="companion-welcome">
-        <div className="companion-avatar" aria-hidden="true"/>
+        <div className={avatarClass} aria-hidden="true"/>
         <div className="companion-bubble assistant"><strong>有什么想问的吗？</strong><p>我会结合你的个人笔记，与你一起思考。</p></div>
         <div className="companion-suggestions">{suggestions.map(item => <button key={item} onClick={() => void ask(item)}>{item}</button>)}</div>
       </div>}
       {loading && <div className="companion-loading"><LoaderCircle className="spin" size={20}/>正在翻阅你的笔记…</div>}
       {messages.map(message => message.role === 'user'
         ? <div className="companion-turn user-turn" key={message.id}><div className="companion-bubble user">{message.content}</div><span className="companion-user-avatar">拾</span></div>
-        : <div className="companion-turn assistant-turn" key={message.id}><span className="companion-avatar small"/><div className="companion-bubble assistant answer"><Markdown text={message.content}/>{message.grounded ? <span className="knowledge-state"><BookOpen size={12}/>已参考 {message.sources.length} 篇个人笔记</span> : <span className="knowledge-state missing">知识库未命中 · 本回答来自模型通用知识</span>}</div></div>)}
+        : <div className="companion-turn assistant-turn" key={message.id}><span className={`${avatarClass} small`}/><div className="companion-bubble assistant answer"><Markdown text={message.content}/>{message.grounded ? <span className="knowledge-state"><BookOpen size={12}/>已参考 {message.sources.length} 篇个人笔记</span> : <span className="knowledge-state missing">知识库未命中 · 本回答来自模型通用知识</span>}</div></div>)}
       {pendingQuestion && <div className="companion-turn user-turn"><div className="companion-bubble user">{pendingQuestion}</div><span className="companion-user-avatar">拾</span></div>}
-      {pendingQuestion && <div className="companion-turn assistant-turn"><span className="companion-avatar small"/><div className="companion-bubble assistant answer">{answer ? <Markdown text={answer}/> : <div className="companion-thinking"><i/><i/><i/><span>正在查阅笔记…</span></div>}</div></div>}
+      {pendingQuestion && <div className="companion-turn assistant-turn"><span className={`${avatarClass} small`}/><div className="companion-bubble assistant answer">{answer ? <Markdown text={answer}/> : <div className="companion-thinking"><i/><i/><i/><span>正在查阅笔记…</span></div>}</div></div>}
     </div>
 
     <aside className={`companion-sources ${referenceState}`} aria-label="参考来源">
@@ -140,7 +158,7 @@ export default function CompanionChat({ onOpenNote }: { onOpenNote: (id: string)
     {settingsOpen && <div className="companion-settings-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setSettingsOpen(false); }}>
       <section className="companion-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="companion-settings-title">
         <header><div><span>对话设置</span><h2 id="companion-settings-title">选择陪你读笔记的红颜</h2></div><button onClick={() => setSettingsOpen(false)} aria-label="关闭"><X size={18}/></button></header>
-        <button className="companion-character selected"><span className="companion-avatar portrait"/><span><strong>知意</strong><small>温柔细致，善于从你的笔记里梳理线索</small></span><Check size={18}/></button>
+        <div className="companion-character-list">{companionThemes.map(item => <button key={item.id} className={`companion-character ${theme === item.id ? 'selected' : ''}`} aria-pressed={theme === item.id} onClick={() => chooseTheme(item.id)}><span className={`companion-avatar portrait theme-${item.id}`}/><span><strong>{item.name}</strong><small>{item.description}</small></span>{theme === item.id ? <Check size={18}/> : <span/>}</button>)}</div>
         <div className="companion-coming-soon"><span>更多红颜与专属背景</span><small>后续可以在这里直接切换图片与陪伴风格</small></div>
         <footer>{confirmClear ? <><span>确定清空全部对话吗？</span><button className="danger" onClick={() => void clearHistory()}>确认清空</button><button onClick={() => setConfirmClear(false)}>取消</button></> : <button className="clear-chat" onClick={() => setConfirmClear(true)}><Trash2 size={15}/>清空对话记录</button>}</footer>
       </section>
