@@ -22,6 +22,10 @@ from . import ai, media, repository, service, store
 store.init()
 TOKEN = os.environ.get('GLEAN_TOKEN') or secrets.token_urlsafe(32)
 app = FastAPI(title='Glean', docs_url=None, redoc_url=None, openapi_url=None)
+COMPANION_IDS = ('chuntang', 'yuexia', 'feiyan', 'yunqu', 'bilan')
+COMPANION_IMAGE_SUFFIXES = {
+    'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif', 'image/webp': '.webp',
+}
 
 
 @app.middleware('http')
@@ -46,6 +50,70 @@ def get_note(note_id):
     if not note:
         raise HTTPException(404, '笔记不存在')
     return note
+
+
+def companion_background_path(companion_id: str):
+    if companion_id not in COMPANION_IDS:
+        raise HTTPException(404, '红颜不存在')
+    folder = store.DATA / 'companion-backgrounds'
+    matches = [path for path in folder.glob(f'{companion_id}.*') if path.suffix in COMPANION_IMAGE_SUFFIXES.values()]
+    return matches[0] if matches else None
+
+
+@app.get('/api/companions/backgrounds')
+def companion_backgrounds():
+    result = {}
+    for companion_id in COMPANION_IDS:
+        path = companion_background_path(companion_id)
+        result[companion_id] = {
+            'custom': path is not None,
+            'version': str(path.stat().st_mtime_ns) if path else '',
+        }
+    return result
+
+
+@app.post('/api/companions/{companion_id}/background')
+async def upload_companion_background(companion_id: str, file: UploadFile = File(...)):
+    companion_background_path(companion_id)  # Validate the route parameter.
+    suffix = COMPANION_IMAGE_SUFFIXES.get((file.content_type or '').lower())
+    if not suffix:
+        await file.close()
+        raise ValueError('仅支持 PNG、JPEG、GIF 或 WebP 图片。')
+    try:
+        content = await file.read(20 * 1024 * 1024 + 1)
+        if not content or len(content) > 20 * 1024 * 1024:
+            raise ValueError('图片为空或超过 20 MB。')
+        folder = store.DATA / 'companion-backgrounds'
+        folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+        destination = folder / f'{companion_id}{suffix}'
+        temporary = folder / f'.{companion_id}-{store.uid()}.tmp'
+        temporary.write_bytes(content)
+        temporary.chmod(0o600)
+        temporary.replace(destination)
+        for old in folder.glob(f'{companion_id}.*'):
+            if old != destination and old.suffix in COMPANION_IMAGE_SUFFIXES.values():
+                old.unlink(missing_ok=True)
+        return {'custom': True, 'version': str(destination.stat().st_mtime_ns)}
+    finally:
+        await file.close()
+
+
+@app.get('/api/companions/{companion_id}/background')
+def companion_background(companion_id: str):
+    path = companion_background_path(companion_id)
+    if not path:
+        raise HTTPException(404, '尚未上传深色背景')
+    return FileResponse(path, headers={
+        'Cache-Control': 'private, no-cache', 'X-Content-Type-Options': 'nosniff',
+    })
+
+
+@app.delete('/api/companions/{companion_id}/background')
+def delete_companion_background(companion_id: str):
+    path = companion_background_path(companion_id)
+    if path:
+        path.unlink(missing_ok=True)
+    return {'ok': True}
 
 
 class Settings(BaseModel):

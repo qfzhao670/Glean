@@ -338,7 +338,7 @@ export default function App() {
           }}/>
       </section>
     </div>}
-    {page === 'companion' && <CompanionChat onOpenNote={openNote} wallpaperMode={companionWallpaperMode} onWallpaperModeChange={setCompanionWallpaperMode}/>}
+    {page === 'companion' && <CompanionChat colorMode={theme} onOpenNote={openNote} wallpaperMode={companionWallpaperMode} onWallpaperModeChange={setCompanionWallpaperMode}/>}
     {page === 'settings' && <SettingsPage onSaved={refresh} notify={notify}/>}
     </main>{showingLibrary && <OverlayScrollbar target={mainScroll}/>}</div>
     {modal && <CreateModal initial={modal} onClose={() => setModal(null)} onCreated={id => { setModal(null); notify('素材已收到，知识开始生长'); watchJob(id); }}/>}

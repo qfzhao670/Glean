@@ -25,7 +25,7 @@ async function start() {
     await new Promise(resolve => setTimeout(resolve, 200));
   }
   if (!ready) { dialog.showErrorBox('拾知无法启动', '本地服务启动超时，请检查 Python 环境或重新启动应用。'); app.quit(); return; }
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': ["default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'"] } }));
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': ["default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'"] } }));
   createWindow();
 }
 function createWindow() {

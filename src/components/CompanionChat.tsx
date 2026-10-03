@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { AtSign, BookOpen, Check, ChevronUp, Expand, FileText, Heart, LoaderCircle, Minimize2, Paperclip, Send, Settings2, Trash2, X } from 'lucide-react';
-import { api, streamJsonLines, type RagMessage, type RagSource } from '../api';
+import { AtSign, BookOpen, Check, ChevronUp, Expand, FileText, Heart, ImagePlus, Images, LoaderCircle, Minimize2, Paperclip, Send, Settings2, Trash2, X } from 'lucide-react';
+import { api, apiBlob, streamJsonLines, uploadCompanionBackground, type CompanionBackgrounds, type CompanionId, type RagMessage, type RagSource } from '../api';
 import Markdown from './Markdown';
 
 type StreamEvent =
@@ -15,7 +15,8 @@ const suggestions = [
   '根据笔记，帮我梳理一份下一步行动清单',
 ];
 
-type CompanionTheme = 'chuntang' | 'yuexia' | 'feiyan' | 'yunqu' | 'bilan';
+type CompanionTheme = CompanionId;
+type BackgroundVariant = 'default' | 'custom';
 const companionThemes: { id: CompanionTheme; name: string; description: string }[] = [
   { id: 'chuntang', name: '春棠', description: '春日花亭，在明媚山水间陪你舒展思绪' },
   { id: 'yuexia', name: '月华', description: '月下倚窗，在清冷夜色里陪你静心思考' },
@@ -25,12 +26,23 @@ const companionThemes: { id: CompanionTheme; name: string; description: string }
 ];
 
 type CompanionChatProps = {
+  colorMode: 'light' | 'dark';
   onOpenNote: (id: string) => void;
   wallpaperMode: boolean;
   onWallpaperModeChange: (active: boolean) => void;
 };
 
-export default function CompanionChat({ onOpenNote, wallpaperMode, onWallpaperModeChange }: CompanionChatProps) {
+const emptyBackgrounds = (): CompanionBackgrounds => ({
+  chuntang: { custom: false, version: '' }, yuexia: { custom: false, version: '' },
+  feiyan: { custom: false, version: '' }, yunqu: { custom: false, version: '' },
+  bilan: { custom: false, version: '' },
+});
+
+const savedBackgroundChoices = () => Object.fromEntries(companionThemes.map(item => [
+  item.id, localStorage.getItem(`glean-companion-background-${item.id}`) === 'default' ? 'default' : 'custom',
+])) as Record<CompanionTheme, BackgroundVariant>;
+
+export default function CompanionChat({ colorMode, onOpenNote, wallpaperMode, onWallpaperModeChange }: CompanionChatProps) {
   const [messages, setMessages] = useState<RagMessage[]>([]);
   const [question, setQuestion] = useState('');
   const [pendingQuestion, setPendingQuestion] = useState('');
@@ -47,7 +59,36 @@ export default function CompanionChat({ onOpenNote, wallpaperMode, onWallpaperMo
     return saved === 'yuexia' || saved === 'feiyan' || saved === 'yunqu' || saved === 'bilan' ? saved : 'chuntang';
   });
   const [previousTheme, setPreviousTheme] = useState<CompanionTheme | null>(null);
+  const [previousBackground, setPreviousBackground] = useState<{ variant: BackgroundVariant; url?: string } | null>(null);
+  const [backgrounds, setBackgrounds] = useState<CompanionBackgrounds>(emptyBackgrounds);
+  const [backgroundChoices, setBackgroundChoices] = useState<Record<CompanionTheme, BackgroundVariant>>(savedBackgroundChoices);
+  const [customBackgroundUrls, setCustomBackgroundUrls] = useState<Partial<Record<CompanionTheme, string>>>({});
+  const [uploadingBackground, setUploadingBackground] = useState<CompanionTheme | null>(null);
+  const customBackgroundUrlsRef = useRef<Partial<Record<CompanionTheme, string>>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    api<CompanionBackgrounds>('/companions/backgrounds').then(async value => {
+      if (!active) return;
+      setBackgrounds(value);
+      const loaded = await Promise.all(companionThemes.filter(item => value[item.id].custom).map(async item => {
+        const blob = await apiBlob(`/companions/${item.id}/background`);
+        return [item.id, URL.createObjectURL(blob)] as const;
+      }));
+      if (!active) {
+        loaded.forEach(([, url]) => URL.revokeObjectURL(url));
+        return;
+      }
+      const urls = Object.fromEntries(loaded) as Partial<Record<CompanionTheme, string>>;
+      customBackgroundUrlsRef.current = urls;
+      setCustomBackgroundUrls(urls);
+    }).catch(reason => active && setError((reason as Error).message));
+    return () => {
+      active = false;
+      Object.values(customBackgroundUrlsRef.current).forEach(url => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -67,7 +108,7 @@ export default function CompanionChat({ onOpenNote, wallpaperMode, onWallpaperMo
 
   useEffect(() => {
     if (!previousTheme) return;
-    const timer = window.setTimeout(() => setPreviousTheme(null), 550);
+    const timer = window.setTimeout(() => { setPreviousTheme(null); setPreviousBackground(null); }, 550);
     return () => window.clearTimeout(timer);
   }, [previousTheme, theme]);
 
@@ -139,8 +180,54 @@ export default function CompanionChat({ onOpenNote, wallpaperMode, onWallpaperMo
   function chooseTheme(next: CompanionTheme) {
     if (next === theme) return;
     setPreviousTheme(theme);
+    setPreviousBackground({ variant: activeBackgroundVariant, url: activeBackgroundUrl });
     setTheme(next);
     localStorage.setItem('glean-companion-theme', next);
+  }
+
+  function chooseBackground(next: BackgroundVariant) {
+    if (next === activeBackgroundVariant || (next === 'custom' && !backgrounds[theme].custom)) return;
+    setPreviousTheme(theme);
+    setPreviousBackground({ variant: activeBackgroundVariant, url: activeBackgroundUrl });
+    setBackgroundChoices(previous => ({ ...previous, [theme]: next }));
+    localStorage.setItem(`glean-companion-background-${theme}`, next);
+  }
+
+  function replaceCustomBackgroundUrl(companion: CompanionTheme, url?: string) {
+    const previousUrl = customBackgroundUrlsRef.current[companion];
+    if (previousUrl && previousUrl !== url) URL.revokeObjectURL(previousUrl);
+    const next = { ...customBackgroundUrlsRef.current };
+    if (url) next[companion] = url; else delete next[companion];
+    customBackgroundUrlsRef.current = next;
+    setCustomBackgroundUrls(next);
+  }
+
+  async function uploadBackground(companion: CompanionTheme, file?: File) {
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(file.type)) {
+      setError('深色背景仅支持 PNG、JPEG、GIF 或 WebP 图片。'); return;
+    }
+    setUploadingBackground(companion); setError('');
+    try {
+      const result = await uploadCompanionBackground(companion, file);
+      replaceCustomBackgroundUrl(companion, URL.createObjectURL(file));
+      setBackgrounds(previous => ({ ...previous, [companion]: result }));
+      setBackgroundChoices(previous => ({ ...previous, [companion]: 'custom' }));
+      localStorage.setItem(`glean-companion-background-${companion}`, 'custom');
+    } catch (reason) { setError((reason as Error).message); }
+    finally { setUploadingBackground(null); }
+  }
+
+  async function removeBackground(companion: CompanionTheme) {
+    setUploadingBackground(companion); setError('');
+    try {
+      await api(`/companions/${companion}/background`, { method: 'DELETE' });
+      replaceCustomBackgroundUrl(companion);
+      setBackgrounds(previous => ({ ...previous, [companion]: { custom: false, version: '' } }));
+      setBackgroundChoices(previous => ({ ...previous, [companion]: 'default' }));
+      localStorage.removeItem(`glean-companion-background-${companion}`);
+    } catch (reason) { setError((reason as Error).message); }
+    finally { setUploadingBackground(null); }
   }
 
   function showWallpaper() {
@@ -156,10 +243,13 @@ export default function CompanionChat({ onOpenNote, wallpaperMode, onWallpaperMo
   const referenceState = grounded === false ? 'missing' : sources.length ? 'grounded' : 'idle';
 
   const avatarClass = `companion-avatar theme-${theme}`;
+  const activeBackgroundVariant: BackgroundVariant = colorMode === 'dark' && backgrounds[theme].custom && backgroundChoices[theme] === 'custom' ? 'custom' : 'default';
+  const activeBackgroundUrl = activeBackgroundVariant === 'custom' ? customBackgroundUrls[theme] : undefined;
+  const customBackgroundReady = activeBackgroundVariant === 'custom' && Boolean(activeBackgroundUrl);
 
   return <section className={`companion-page page-enter theme-${theme} ${wallpaperMode ? 'wallpaper-mode' : ''}`} aria-label={wallpaperMode ? '红颜知音全屏壁纸' : '红颜知音笔记问答'}>
-    {previousTheme && <div className={`companion-background previous theme-${previousTheme}`} aria-hidden="true"/>}
-    <div key={theme} className={`companion-background current theme-${theme}`} aria-hidden="true" onAnimationEnd={() => setPreviousTheme(null)}/>
+    {previousTheme && <div className={`companion-background previous theme-${previousTheme}`} style={previousBackground?.variant === 'custom' && previousBackground.url ? { backgroundImage: `url("${previousBackground.url}")` } : undefined} aria-hidden="true"/>}
+    <div key={`${theme}-${activeBackgroundVariant}-${activeBackgroundUrl || ''}`} className={`companion-background current theme-${theme} ${customBackgroundReady ? 'custom' : ''}`} style={customBackgroundReady ? { backgroundImage: `url("${activeBackgroundUrl}")` } : undefined} aria-hidden="true" onAnimationEnd={() => { setPreviousTheme(null); setPreviousBackground(null); }}/>
     <button className="companion-wallpaper-exit" onClick={hideWallpaper} aria-label="退出壁纸模式" aria-hidden={!wallpaperMode} tabIndex={wallpaperMode ? 0 : -1} title="退出壁纸模式（Esc）"><Minimize2 size={18}/><span>退出壁纸</span></button>
     <div className="companion-interface" aria-hidden={wallpaperMode} inert={wallpaperMode ? true : undefined}>
     <div className="companion-shade"/>
@@ -200,8 +290,21 @@ export default function CompanionChat({ onOpenNote, wallpaperMode, onWallpaperMo
     {settingsOpen && <div className="companion-settings-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setSettingsOpen(false); }}>
       <section className="companion-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="companion-settings-title">
         <header><div><span>对话设置</span><h2 id="companion-settings-title">选择陪你读笔记的红颜</h2></div><button onClick={() => setSettingsOpen(false)} aria-label="关闭"><X size={18}/></button></header>
-        <div className="companion-character-list">{companionThemes.map(item => <button key={item.id} className={`companion-character ${theme === item.id ? 'selected' : ''}`} aria-pressed={theme === item.id} onClick={() => chooseTheme(item.id)}><span className={`companion-avatar portrait theme-${item.id}`}/><span><strong>{item.name}</strong><small>{item.description}</small></span>{theme === item.id ? <Check size={18}/> : <span/>}</button>)}</div>
-        <div className="companion-coming-soon"><span>更多红颜与专属背景</span><small>后续可以在这里直接切换图片与陪伴风格</small></div>
+        <div className="companion-character-list">{companionThemes.map(item => <div className="companion-character-entry" key={item.id}>
+          <button className={`companion-character ${theme === item.id ? 'selected' : ''}`} aria-pressed={theme === item.id} onClick={() => chooseTheme(item.id)}><span className={`companion-avatar portrait theme-${item.id}`}/><span><strong>{item.name}</strong><small>{item.description}</small></span>{theme === item.id ? <Check size={18}/> : <span/>}</button>
+          {colorMode === 'dark' && theme === item.id && <section className="companion-dark-background" aria-label={`${item.name}的深色背景`}>
+            <header><span><Images size={15}/><strong>深色背景</strong></span><small>可在原图和专属图片间切换</small></header>
+            <div className="companion-background-options">
+              <button className={activeBackgroundVariant === 'default' ? 'selected' : ''} onClick={() => chooseBackground('default')} aria-pressed={activeBackgroundVariant === 'default'}><i className={`theme-${theme}`}/><span>原始图片</span>{activeBackgroundVariant === 'default' && <Check size={13}/>}</button>
+              <button className={activeBackgroundVariant === 'custom' ? 'selected' : ''} disabled={!backgrounds[theme].custom || !customBackgroundUrls[theme]} onClick={() => chooseBackground('custom')} aria-pressed={activeBackgroundVariant === 'custom'}><i className={!customBackgroundUrls[theme] ? 'empty' : ''} style={customBackgroundUrls[theme] ? { backgroundImage: `url("${customBackgroundUrls[theme]}")` } : undefined}>{!customBackgroundUrls[theme] && <ImagePlus size={20}/>}</i><span>{backgrounds[theme].custom ? '专属图片' : '待上传'}</span>{activeBackgroundVariant === 'custom' && <Check size={13}/>}</button>
+            </div>
+            <div className="companion-background-actions">
+              <label className={uploadingBackground ? 'disabled' : ''}><ImagePlus size={14}/>{uploadingBackground === theme ? '正在上传…' : backgrounds[theme].custom ? '更换图片' : '上传图片'}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" disabled={Boolean(uploadingBackground)} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; void uploadBackground(theme, file); }}/></label>
+              {backgrounds[theme].custom && <button disabled={Boolean(uploadingBackground)} onClick={() => void removeBackground(theme)}>移除专属图片</button>}
+            </div>
+            <p>上传后会自动设为这位红颜的深色背景；浅色模式始终使用原始图片。</p>
+          </section>}
+        </div>)}</div>
         <footer>{confirmClear ? <><span>确定清空全部对话吗？</span><button className="danger" onClick={() => void clearHistory()}>确认清空</button><button onClick={() => setConfirmClear(false)}>取消</button></> : <button className="clear-chat" onClick={() => setConfirmClear(true)}><Trash2 size={15}/>清空对话记录</button>}</footer>
       </section>
     </div>}

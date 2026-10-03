@@ -175,6 +175,42 @@ def test_upload_rejects_non_txt_non_mp4(client):
     assert '.txt' in response.json()['detail']
 
 
+def test_companion_background_upload_list_read_and_delete(client):
+    initial = client.get('/api/companions/backgrounds')
+    assert initial.status_code == 200
+    assert initial.json()['chuntang'] == {'custom': False, 'version': ''}
+
+    uploaded = client.post(
+        '/api/companions/chuntang/background',
+        files={'file': ('night.webp', b'custom-background', 'image/webp')},
+    )
+    assert uploaded.status_code == 200
+    assert uploaded.json()['custom'] is True
+    assert uploaded.json()['version']
+
+    image = client.get('/api/companions/chuntang/background')
+    assert image.status_code == 200
+    assert image.content == b'custom-background'
+    assert client.get('/api/companions/backgrounds').json()['chuntang']['custom'] is True
+
+    removed = client.delete('/api/companions/chuntang/background')
+    assert removed.status_code == 200
+    assert client.get('/api/companions/chuntang/background').status_code == 404
+
+
+def test_companion_background_validates_character_and_type(client):
+    unknown = client.post(
+        '/api/companions/unknown/background',
+        files={'file': ('night.png', b'image', 'image/png')},
+    )
+    assert unknown.status_code == 404
+    invalid = client.post(
+        '/api/companions/yuexia/background',
+        files={'file': ('night.bmp', b'image', 'image/bmp')},
+    )
+    assert invalid.status_code == 400
+
+
 def test_legacy_url_job_has_actionable_failure():
     with patch.object(service.EXECUTOR, 'submit'):
         job_id = service.new_job('url', '旧链接任务', {'url': 'https://example.test/video'})
