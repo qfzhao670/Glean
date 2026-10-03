@@ -22,7 +22,7 @@ from . import ai, media, repository, service, store
 store.init()
 TOKEN = os.environ.get('GLEAN_TOKEN') or secrets.token_urlsafe(32)
 app = FastAPI(title='Glean', docs_url=None, redoc_url=None, openapi_url=None)
-COMPANION_IDS = ('chuntang', 'yuexia', 'feiyan', 'yunqu', 'bilan')
+COMPANION_IDS = ('chuntang', 'yuexia', 'feiyan', 'yunqu', 'bilan', 'chayan')
 COMPANION_IMAGE_SUFFIXES = {
     'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif', 'image/webp': '.webp',
 }

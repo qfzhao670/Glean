@@ -23,6 +23,7 @@ const companionThemes: { id: CompanionTheme; name: string; description: string }
   { id: 'feiyan', name: '绯颜', description: '红衣临水，在烂漫春光里陪你捕捉灵感' },
   { id: 'yunqu', name: '云阙', description: '月照云海，在澄澈仙境里陪你悠然畅想' },
   { id: 'bilan', name: '碧岚', description: '蝶栖指尖，在青山飞瀑间陪你自在遐思' },
+  { id: 'chayan', name: '茶烟', description: '花亭品茗，在山光水色间陪你细品灵思' },
 ];
 
 type CompanionChatProps = {
@@ -35,7 +36,7 @@ type CompanionChatProps = {
 const emptyBackgrounds = (): CompanionBackgrounds => ({
   chuntang: { custom: false, version: '' }, yuexia: { custom: false, version: '' },
   feiyan: { custom: false, version: '' }, yunqu: { custom: false, version: '' },
-  bilan: { custom: false, version: '' },
+  bilan: { custom: false, version: '' }, chayan: { custom: false, version: '' },
 });
 
 const savedBackgroundChoices = () => Object.fromEntries(companionThemes.map(item => [
@@ -56,7 +57,7 @@ export default function CompanionChat({ colorMode, onOpenNote, wallpaperMode, on
   const [confirmClear, setConfirmClear] = useState(false);
   const [theme, setTheme] = useState<CompanionTheme>(() => {
     const saved = localStorage.getItem('glean-companion-theme');
-    return saved === 'yuexia' || saved === 'feiyan' || saved === 'yunqu' || saved === 'bilan' ? saved : 'chuntang';
+    return saved === 'yuexia' || saved === 'feiyan' || saved === 'yunqu' || saved === 'bilan' || saved === 'chayan' ? saved : 'chuntang';
   });
   const [previousTheme, setPreviousTheme] = useState<CompanionTheme | null>(null);
   const [previousBackground, setPreviousBackground] = useState<{ variant: BackgroundVariant; url?: string } | null>(null);

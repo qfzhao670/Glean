@@ -6,7 +6,7 @@ export interface Job { id: string; status: string; title: string; kind: string; 
 export interface Stats { generated: number; curated: number; manual: number; notes: number; links: number; minutes: number; patches: number; streak: number; active_days: number; activity: { date: string; count: number; in_range: boolean }[]; graph: { id: string; title: string; links: string[] }[] }
 export interface RagSource { note_id: string; title: string; section: string; excerpt: string }
 export interface RagMessage { id: string; role: 'user' | 'assistant'; content: string; sources: RagSource[]; grounded: boolean; created_at: string }
-export type CompanionId = 'chuntang' | 'yuexia' | 'feiyan' | 'yunqu' | 'bilan';
+export type CompanionId = 'chuntang' | 'yuexia' | 'feiyan' | 'yunqu' | 'bilan' | 'chayan';
 export type CompanionBackgrounds = Record<CompanionId, { custom: boolean; version: string }>;
 export interface Settings { base_url: string; model: string; api_key: string | null; has_api_key?: boolean; transcription_base_url: string; transcription_model: string; transcription_language: 'auto' | 'zh' | 'en'; transcription_key: string | null; has_transcription_key?: boolean; vault_path: string; repository_path: string; notes_folder: string; chunk_chars: number; auto_patch: boolean }
 declare global { interface Window { glean?: { config: () => Promise<{ token: string; baseUrl: string }>; chooseVault: () => Promise<string | null>; revealNote: (id: string) => Promise<void>; openRepository: () => Promise<void> } } }

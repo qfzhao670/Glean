@@ -179,6 +179,7 @@ def test_companion_background_upload_list_read_and_delete(client):
     initial = client.get('/api/companions/backgrounds')
     assert initial.status_code == 200
     assert initial.json()['chuntang'] == {'custom': False, 'version': ''}
+    assert initial.json()['chayan'] == {'custom': False, 'version': ''}
 
     uploaded = client.post(
         '/api/companions/chuntang/background',
