@@ -1419,9 +1419,12 @@ body{background:#edf1ed;color:#31493f}
 .spirit-shell>.main-shell>.connection-error{flex-shrink:0}
 .spirit-shell>.main-shell>main{flex:1;min-height:0;overflow:hidden}
 
-.spirit-sea{--sea-shift-x:0;--sea-shift-y:0;position:relative;width:100%;height:100%;min-height:480px;overflow:hidden;isolation:isolate;background:#1a2116 url('./assets/spirit-sea/background.png') center center/cover no-repeat;color:#f3f3cd;animation:spirit-sea-reveal .8s ease-out both}
-.spirit-sea:before{content:'';position:absolute;z-index:1;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(14,20,14,.68) 0%,rgba(14,20,14,.3) 24%,transparent 49%),linear-gradient(180deg,rgba(13,18,12,.3),transparent 22%,transparent 68%,rgba(8,12,7,.33)),radial-gradient(ellipse at 50% 45%,transparent 48%,rgba(8,11,7,.25) 100%)}
-.spirit-sea:after{content:'';position:absolute;z-index:125;inset:0;pointer-events:none;box-shadow:inset 0 0 100px rgba(12,18,9,.46),inset 0 -45px 75px rgba(7,11,7,.3)}
+.spirit-sea{--sea-shift-x:0;--sea-shift-y:0;position:relative;width:100%;height:100%;min-height:480px;overflow:hidden;isolation:isolate;background:#b8d9d2 url('./assets/spirit-sea/background-light.png') center center/cover no-repeat;color:#f3f3cd;animation:spirit-sea-reveal .8s ease-out both}
+:root[data-theme="dark"] .spirit-sea{background-color:#1a2116;background-image:url('./assets/spirit-sea/background.png')}
+.spirit-sea:before{content:'';position:absolute;z-index:1;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(255,255,246,.46) 0%,rgba(255,255,244,.2) 24%,transparent 49%),linear-gradient(180deg,rgba(255,255,246,.28),transparent 22%,transparent 68%,rgba(255,251,224,.3)),radial-gradient(ellipse at 50% 45%,transparent 48%,rgba(255,254,235,.3) 100%)}
+.spirit-sea:after{content:'';position:absolute;z-index:125;inset:0;pointer-events:none;box-shadow:inset 0 0 100px rgba(255,255,238,.48),inset 0 -45px 75px rgba(255,250,216,.34)}
+:root[data-theme="dark"] .spirit-sea:before{background:linear-gradient(90deg,rgba(14,20,14,.68) 0%,rgba(14,20,14,.3) 24%,transparent 49%),linear-gradient(180deg,rgba(13,18,12,.3),transparent 22%,transparent 68%,rgba(8,12,7,.33)),radial-gradient(ellipse at 50% 45%,transparent 48%,rgba(8,11,7,.25) 100%)}
+:root[data-theme="dark"] .spirit-sea:after{box-shadow:inset 0 0 100px rgba(12,18,9,.46),inset 0 -45px 75px rgba(7,11,7,.3)}
 .spirit-sea-atmosphere{position:absolute;z-index:4;inset:-8%;pointer-events:none;transform:translate(calc(var(--sea-shift-x) * -8px),calc(var(--sea-shift-y) * -5px));transition:transform 1.2s cubic-bezier(.2,.8,.2,1)}
 .spirit-sea-atmosphere i{position:absolute;display:block;width:65%;height:16%;border-radius:50%;background:radial-gradient(ellipse,rgba(246,223,151,.23),rgba(214,199,139,.08) 45%,transparent 72%);filter:blur(20px);opacity:.68;animation:spirit-mist 16s ease-in-out infinite alternate}
 .spirit-sea-atmosphere i:nth-child(1){left:-12%;top:31%;transform:rotate(5deg)}
