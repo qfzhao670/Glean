@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
-import { BookOpen, Sparkles } from 'lucide-react';
+import { BookOpen, Moon, Sparkles, Sun } from 'lucide-react';
 import type { Note } from '../api';
 import sword01 from '../assets/spirit-sea/sword-01.png';
 import sword02 from '../assets/spirit-sea/sword-02.png';
@@ -14,6 +14,8 @@ const swordModels = [sword01, sword02, sword03, sword04, sword05, sword06, sword
 
 type SpiritSeaProps = {
   notes: Note[];
+  colorMode: 'light' | 'dark';
+  onColorModeToggle: () => void;
   onOpenNote: (id: string) => void;
 };
 
@@ -77,7 +79,7 @@ function formatDate(value: string) {
   return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
 }
 
-export default function SpiritSea({ notes, onOpenNote }: SpiritSeaProps) {
+export default function SpiritSea({ notes, colorMode, onColorModeToggle, onOpenNote }: SpiritSeaProps) {
   const sceneRef = useRef<HTMLElement>(null);
   const [parallax, setParallax] = useState({ x: 0, y: 0 });
   const swords = useMemo(() => notes.map(placeSword).sort((a, b) => a.depth - b.depth), [notes]);
@@ -100,6 +102,14 @@ export default function SpiritSea({ notes, onOpenNote }: SpiritSeaProps) {
     style={{ '--sea-shift-x': parallax.x, '--sea-shift-y': parallax.y } as CSSProperties}
   >
     <div className="spirit-sea-atmosphere" aria-hidden="true"><i/><i/><i/></div>
+    <button
+      className="spirit-theme-toggle"
+      onClick={onColorModeToggle}
+      title={`切换为${colorMode === 'dark' ? '浅色' : '深色'}模式`}
+      aria-label={`切换为${colorMode === 'dark' ? '浅色' : '深色'}模式`}
+    >
+      {colorMode === 'dark' ? <Sun size={17}/> : <Moon size={17}/>}
+    </button>
     <header className="spirit-sea-heading">
       <span className="spirit-sea-kicker"><Sparkles size={13}/> MIND SEA</span>
       <h1>精神识海</h1>
