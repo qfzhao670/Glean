@@ -1303,18 +1303,105 @@ body{background:#edf1ed;color:#31493f}
 :root[data-theme="dark"] .generation-waiting h2{color:#b8edc6}
 :root[data-theme="dark"] .agent-orbit{color:#9aebb0;background:#153a31}
 
-/* Keep the companion composer as the original white translucent glass panel. */
-:root[data-theme="dark"] .companion-composer{border-color:#ffffff9c;background:#fffdf1b8;box-shadow:0 14px 50px #20362b30;color:#304a3e}
+/* The companion keeps its illustrated backdrop in dark mode, while every
+   interactive surface switches to a deep translucent glass treatment. */
+:root[data-theme="dark"] .companion-page{color:#dcebe3}
+:root[data-theme="dark"] .companion-shade{background:linear-gradient(90deg,rgba(2,13,12,.42),rgba(4,18,16,.2) 42%,rgba(2,12,11,.48)),linear-gradient(0deg,rgba(2,13,12,.5),rgba(3,16,14,.12) 48%,rgba(2,12,11,.26))}
+:root[data-theme="dark"] .companion-shell.companion-sidebar-collapsed::before{border-color:#70b89435;background:#071b1bcc;box-shadow:0 9px 30px #0007}
+:root[data-theme="dark"] .companion-sidebar-toggle{border-color:#8cd1ab42;background:#0a2422db;box-shadow:0 7px 24px #0006;color:#a7e5bb}
+:root[data-theme="dark"] .companion-sidebar-toggle:hover{background:#12372fe8;color:#d8ffe2}
+:root[data-theme="dark"] .companion-sidebar-collapsed .companion-sidebar-toggle{border-color:#4e8c6f;background:#0b2825;box-shadow:0 0 0 4px #174d3b61,0 6px 18px #0006}
+
+:root[data-theme="dark"] .companion-title,
+:root[data-theme="dark"] .companion-settings-button,
+:root[data-theme="dark"] .companion-wallpaper-button,
+:root[data-theme="dark"] .companion-theme-toggle{border-color:#8ed8ad3d;background:#071d1cce;box-shadow:0 8px 30px #0007;color:#d8eee1}
+:root[data-theme="dark"] .companion-title small{border-color:#a4c8b337;color:#9fb8ac}
+:root[data-theme="dark"] .companion-settings-button:hover,
+:root[data-theme="dark"] .companion-wallpaper-button:hover,
+:root[data-theme="dark"] .companion-theme-toggle:hover{background:#123a32ed;color:#b9f4ca;box-shadow:0 9px 32px #0008}
+
+:root[data-theme="dark"] .companion-avatar{border-color:#a9e8c064;box-shadow:0 8px 25px #0008}
+:root[data-theme="dark"] .companion-bubble{border-color:#91c7a835;box-shadow:0 12px 38px #0007}
+:root[data-theme="dark"] .companion-bubble.assistant{background:#071d1cdb;color:#d5e6dd}
+:root[data-theme="dark"] .companion-welcome>.companion-bubble p{color:#9db1a7}
+:root[data-theme="dark"] .companion-suggestions button{border-color:#8fd0a93d;background:#09211fce;box-shadow:0 6px 20px #0006;color:#b5cfc1}
+:root[data-theme="dark"] .companion-suggestions button:hover{border-color:#71c5937a;background:#153d34ed;color:#c8f6d4}
+:root[data-theme="dark"] .companion-bubble.user{border-color:#65c58d55;background:#164739e8;color:#e0f4e7}
+:root[data-theme="dark"] .companion-user-avatar{border-color:#8dd5aa59;background:#0d302bdf;box-shadow:0 6px 20px #0007;color:#b9e6c8}
+:root[data-theme="dark"] .companion-bubble.answer .markdown{color:#d2e1d9}
+:root[data-theme="dark"] .companion-bubble.answer .markdown h1,
+:root[data-theme="dark"] .companion-bubble.answer .markdown h2,
+:root[data-theme="dark"] .companion-bubble.answer .markdown h3{color:#ebf8ef}
+:root[data-theme="dark"] .knowledge-state{background:#153c32;color:#9ed7b0}
+:root[data-theme="dark"] .knowledge-state.missing{background:#433a28;color:#dfc995}
+:root[data-theme="dark"] .companion-thinking{color:#9db1a7}
+:root[data-theme="dark"] .companion-thinking i{background:#79d69b}
+
+:root[data-theme="dark"] .companion-sources{border-color:#8ed3aa36;background:#071d1ce8;box-shadow:0 14px 45px #0008;scrollbar-color:#42685a transparent}
+:root[data-theme="dark"] .companion-sources>header{border-color:#7aa98f33;color:#d4e9dd}
+:root[data-theme="dark"] .companion-sources>header b{background:#174437;color:#aee5bf}
+:root[data-theme="dark"] .companion-source-card{border-color:#6e9d8430}
+:root[data-theme="dark"] .companion-source-card:hover strong{color:#97efb2}
+:root[data-theme="dark"] .source-file-icon{background:#153d34;color:#8be7aa}
+:root[data-theme="dark"] .source-file-icon i{border-color:#0a211f;background:#22513f;color:#c3edd0}
+:root[data-theme="dark"] .companion-source-card strong{color:#d3e7dc}
+:root[data-theme="dark"] .companion-source-card p{color:#98aaa1}
+:root[data-theme="dark"] .companion-source-card small{color:#738c81}
+:root[data-theme="dark"] .companion-no-source,
+:root[data-theme="dark"] .companion-no-source.idle{color:#a5b9ae}
+:root[data-theme="dark"] .companion-no-source p,
+:root[data-theme="dark"] .companion-no-source.idle p{color:#849b90}
+
+:root[data-theme="dark"] .companion-composer{border-color:#8ed3aa42;background:#071d1ce8;box-shadow:0 14px 50px #0009;color:#d4e8dd}
 :root[data-theme="dark"] .companion-composer:hover,
-:root[data-theme="dark"] .companion-composer:focus-within{border-color:#ffffffc7;background:#fffdf1eb;box-shadow:0 16px 54px #20362b38}
+:root[data-theme="dark"] .companion-composer:focus-within{border-color:#74d29978;background:#0a2824f2;box-shadow:0 16px 54px #000a,0 0 22px #49c37a18}
 :root[data-theme="dark"] .companion-composer textarea,
-:root[data-theme="dark"] .companion-composer textarea:focus{border:0;background:transparent;color:#304a3e;box-shadow:none}
-:root[data-theme="dark"] .companion-composer textarea::placeholder{color:#8d9690}
-:root[data-theme="dark"] .companion-composer footer>span{color:#76877e}
-:root[data-theme="dark"] .companion-composer em{background:#edf3e9;color:#577063}
-:root[data-theme="dark"] .companion-composer .companion-send{background:#245b46;color:#fff}
-:root[data-theme="dark"] .companion-composer .companion-send:hover:not(:disabled){background:#327159}
-:root[data-theme="dark"] .companion-composer .companion-send:disabled{background:#7c9187}
+:root[data-theme="dark"] .companion-composer textarea:focus{border:0;background:transparent;color:#e0ece5;box-shadow:none}
+:root[data-theme="dark"] .companion-composer textarea::placeholder{color:#789087}
+:root[data-theme="dark"] .companion-composer footer>span{color:#8aa198}
+:root[data-theme="dark"] .companion-composer footer>span>button:hover:not(:disabled){background:#174036;color:#b7edc7}
+:root[data-theme="dark"] .companion-composer em{background:#15372f;color:#9bc8aa}
+:root[data-theme="dark"] .companion-composer .companion-send{background:#31805a;color:#f0fff4;box-shadow:0 7px 17px #0006}
+:root[data-theme="dark"] .companion-composer .companion-send:hover:not(:disabled){background:#43a46f}
+:root[data-theme="dark"] .companion-composer .companion-send:disabled{background:#315148;color:#728a80}
+:root[data-theme="dark"] .companion-error{border-color:#a85d4d70;background:#351b19e8;color:#efaa99}
+:root[data-theme="dark"] .companion-error button:hover{background:#693028;color:#ffd4ca}
+
+:root[data-theme="dark"] .companion-settings-backdrop{background:#020b0a9c}
+:root[data-theme="dark"] .companion-settings-dialog{border-color:#83c9a83d;background:#081d1cef;color:#d7e8df;box-shadow:0 25px 80px #000b;scrollbar-color:#42685a transparent}
+:root[data-theme="dark"] .companion-settings-dialog>header span{color:#89a097}
+:root[data-theme="dark"] .companion-settings-dialog>header>button{color:#9ab0a6}
+:root[data-theme="dark"] .companion-settings-dialog>header>button:hover{background:#17372f;color:#c9f2d4}
+:root[data-theme="dark"] .companion-character{border-color:#35564d;background:#0d2926;color:#d9e8e0}
+:root[data-theme="dark"] .companion-character:hover{border-color:#548970;background:#12332d}
+:root[data-theme="dark"] .companion-character.selected{border-color:#66bd8d;background:#174034;box-shadow:0 0 0 2px #65c28a21}
+:root[data-theme="dark"] .companion-character small{color:#91a69c}
+:root[data-theme="dark"] .companion-character>svg{color:#8aefac}
+:root[data-theme="dark"] .companion-coming-soon{border-color:#416158}
+:root[data-theme="dark"] .companion-coming-soon span{color:#a6bcb1}
+:root[data-theme="dark"] .companion-coming-soon small{color:#748c82}
+:root[data-theme="dark"] .companion-dark-background{border-color:#34574d;background:#0b2623}
+:root[data-theme="dark"] .companion-dark-background>header>span{color:#b8dec5}
+:root[data-theme="dark"] .companion-dark-background>header small,
+:root[data-theme="dark"] .companion-dark-background>p{color:#7f988d}
+:root[data-theme="dark"] .companion-background-options>button,
+:root[data-theme="dark"] .companion-background-slot>button:first-child,
+:root[data-theme="dark"] .companion-background-upload{border-color:#36574e;background:#0e2b27;color:#9fb7ac}
+:root[data-theme="dark"] .companion-background-options>button:hover:not(:disabled),
+:root[data-theme="dark"] .companion-background-slot>button:first-child:hover:not(:disabled),
+:root[data-theme="dark"] .companion-background-upload:hover:not(.disabled){border-color:#64a987;background:#14372f}
+:root[data-theme="dark"] .companion-background-options>button.selected,
+:root[data-theme="dark"] .companion-background-slot>button:first-child.selected{border-color:#6bd397;box-shadow:0 0 0 2px #63cf912d;color:#b9ecc8}
+:root[data-theme="dark"] .companion-background-options i.empty{background:#173731;color:#87a196}
+:root[data-theme="dark"] .companion-background-actions button{color:#d3a397}
+:root[data-theme="dark"] .companion-background-actions button:hover:not(:disabled){background:#4b2b27}
+:root[data-theme="dark"] .companion-settings-dialog>footer{border-color:#345249}
+:root[data-theme="dark"] .companion-settings-dialog>footer>span{color:#d29c8d}
+:root[data-theme="dark"] .companion-settings-dialog .clear-chat{color:#d5a397}
+:root[data-theme="dark"] .companion-settings-dialog .clear-chat:hover{background:#452824}
+:root[data-theme="dark"] .companion-settings-dialog .danger{background:#a95747;color:#fff}
+:root[data-theme="dark"] .companion-settings-dialog .danger:hover{background:#bf6856}
 
 /* These pages sit on the persistent main-shell artwork; animating or repainting
    a second background made the landscape visibly jump during navigation. */
