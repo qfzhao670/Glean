@@ -17,6 +17,8 @@ const suggestions = [
 
 type CompanionTheme = CompanionId;
 type BackgroundVariant = 'default' | 'custom';
+type BackgroundChoice = 'default' | string;
+type CustomBackgroundUrls = Partial<Record<CompanionTheme, Record<string, string>>>;
 const companionThemes: { id: CompanionTheme; name: string; description: string }[] = [
   { id: 'chuntang', name: '春棠', description: '春日花亭，在明媚山水间陪你舒展思绪' },
   { id: 'yuexia', name: '月华', description: '月下倚窗，在清冷夜色里陪你静心思考' },
@@ -34,14 +36,13 @@ type CompanionChatProps = {
 };
 
 const emptyBackgrounds = (): CompanionBackgrounds => ({
-  chuntang: { custom: false, version: '' }, yuexia: { custom: false, version: '' },
-  feiyan: { custom: false, version: '' }, yunqu: { custom: false, version: '' },
-  bilan: { custom: false, version: '' }, chayan: { custom: false, version: '' },
+  chuntang: { items: [] }, yuexia: { items: [] }, feiyan: { items: [] },
+  yunqu: { items: [] }, bilan: { items: [] }, chayan: { items: [] },
 });
 
 const savedBackgroundChoices = () => Object.fromEntries(companionThemes.map(item => [
-  item.id, localStorage.getItem(`glean-companion-background-${item.id}`) === 'default' ? 'default' : 'custom',
-])) as Record<CompanionTheme, BackgroundVariant>;
+  item.id, localStorage.getItem(`glean-companion-background-${item.id}`) || 'custom',
+])) as Record<CompanionTheme, BackgroundChoice>;
 
 export default function CompanionChat({ colorMode, onOpenNote, wallpaperMode, onWallpaperModeChange }: CompanionChatProps) {
   const [messages, setMessages] = useState<RagMessage[]>([]);
@@ -62,34 +63,54 @@ export default function CompanionChat({ colorMode, onOpenNote, wallpaperMode, on
   const [previousTheme, setPreviousTheme] = useState<CompanionTheme | null>(null);
   const [previousBackground, setPreviousBackground] = useState<{ variant: BackgroundVariant; url?: string } | null>(null);
   const [backgrounds, setBackgrounds] = useState<CompanionBackgrounds>(emptyBackgrounds);
-  const [backgroundChoices, setBackgroundChoices] = useState<Record<CompanionTheme, BackgroundVariant>>(savedBackgroundChoices);
-  const [customBackgroundUrls, setCustomBackgroundUrls] = useState<Partial<Record<CompanionTheme, string>>>({});
+  const [backgroundChoices, setBackgroundChoices] = useState<Record<CompanionTheme, BackgroundChoice>>(savedBackgroundChoices);
+  const [customBackgroundUrls, setCustomBackgroundUrls] = useState<CustomBackgroundUrls>({});
   const [uploadingBackground, setUploadingBackground] = useState<CompanionTheme | null>(null);
-  const customBackgroundUrlsRef = useRef<Partial<Record<CompanionTheme, string>>>({});
+  const customBackgroundUrlsRef = useRef<CustomBackgroundUrls>({});
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let active = true;
-    api<CompanionBackgrounds>('/companions/backgrounds').then(async value => {
+    api<CompanionBackgrounds>('/companions/backgrounds').then(value => {
       if (!active) return;
       setBackgrounds(value);
-      const loaded = await Promise.all(companionThemes.filter(item => value[item.id].custom).map(async item => {
-        const blob = await apiBlob(`/companions/${item.id}/background`);
-        return [item.id, URL.createObjectURL(blob)] as const;
-      }));
+      setBackgroundChoices(previous => Object.fromEntries(companionThemes.map(companion => {
+        const items = value[companion.id].items;
+        const saved = previous[companion.id];
+        const next = saved === 'default' ? 'default'
+          : items.some(item => item.id === saved) ? saved
+          : items[0]?.id || 'default';
+        if (next === 'default') localStorage.setItem(`glean-companion-background-${companion.id}`, 'default');
+        else localStorage.setItem(`glean-companion-background-${companion.id}`, next);
+        return [companion.id, next];
+      })) as Record<CompanionTheme, BackgroundChoice>);
+    }).catch(reason => active && setError((reason as Error).message));
+    return () => {
+      active = false;
+      Object.values(customBackgroundUrlsRef.current).forEach(urls => Object.values(urls).forEach(url => URL.revokeObjectURL(url)));
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const unloaded = backgrounds[theme].items.filter(item => !customBackgroundUrlsRef.current[theme]?.[item.id]);
+    if (!unloaded.length) return;
+    Promise.all(unloaded.map(async item => {
+      const blob = await apiBlob(`/companions/${theme}/background/${item.id}`);
+      return [item.id, URL.createObjectURL(blob)] as const;
+    })).then(loaded => {
       if (!active) {
         loaded.forEach(([, url]) => URL.revokeObjectURL(url));
         return;
       }
-      const urls = Object.fromEntries(loaded) as Partial<Record<CompanionTheme, string>>;
-      customBackgroundUrlsRef.current = urls;
-      setCustomBackgroundUrls(urls);
+      const companionUrls = { ...customBackgroundUrlsRef.current[theme] };
+      loaded.forEach(([id, url]) => { companionUrls[id] = url; });
+      const next = { ...customBackgroundUrlsRef.current, [theme]: companionUrls };
+      customBackgroundUrlsRef.current = next;
+      setCustomBackgroundUrls(next);
     }).catch(reason => active && setError((reason as Error).message));
-    return () => {
-      active = false;
-      Object.values(customBackgroundUrlsRef.current).forEach(url => URL.revokeObjectURL(url));
-    };
-  }, []);
+    return () => { active = false; };
+  }, [backgrounds, theme]);
 
   useEffect(() => {
     let active = true;
@@ -186,19 +207,20 @@ export default function CompanionChat({ colorMode, onOpenNote, wallpaperMode, on
     localStorage.setItem('glean-companion-theme', next);
   }
 
-  function chooseBackground(next: BackgroundVariant) {
-    if (next === activeBackgroundVariant || (next === 'custom' && !backgrounds[theme].custom)) return;
+  function chooseBackground(next: BackgroundChoice) {
+    if (next === backgroundChoices[theme] || (next !== 'default' && !backgrounds[theme].items.some(item => item.id === next))) return;
     setPreviousTheme(theme);
     setPreviousBackground({ variant: activeBackgroundVariant, url: activeBackgroundUrl });
     setBackgroundChoices(previous => ({ ...previous, [theme]: next }));
     localStorage.setItem(`glean-companion-background-${theme}`, next);
   }
 
-  function replaceCustomBackgroundUrl(companion: CompanionTheme, url?: string) {
-    const previousUrl = customBackgroundUrlsRef.current[companion];
+  function replaceCustomBackgroundUrl(companion: CompanionTheme, id: string, url?: string) {
+    const previousUrl = customBackgroundUrlsRef.current[companion]?.[id];
     if (previousUrl && previousUrl !== url) URL.revokeObjectURL(previousUrl);
-    const next = { ...customBackgroundUrlsRef.current };
-    if (url) next[companion] = url; else delete next[companion];
+    const companionUrls = { ...customBackgroundUrlsRef.current[companion] };
+    if (url) companionUrls[id] = url; else delete companionUrls[id];
+    const next = { ...customBackgroundUrlsRef.current, [companion]: companionUrls };
     customBackgroundUrlsRef.current = next;
     setCustomBackgroundUrls(next);
   }
@@ -211,22 +233,28 @@ export default function CompanionChat({ colorMode, onOpenNote, wallpaperMode, on
     setUploadingBackground(companion); setError('');
     try {
       const result = await uploadCompanionBackground(companion, file);
-      replaceCustomBackgroundUrl(companion, URL.createObjectURL(file));
-      setBackgrounds(previous => ({ ...previous, [companion]: result }));
-      setBackgroundChoices(previous => ({ ...previous, [companion]: 'custom' }));
-      localStorage.setItem(`glean-companion-background-${companion}`, 'custom');
+      replaceCustomBackgroundUrl(companion, result.id, URL.createObjectURL(file));
+      setBackgrounds(previous => ({
+        ...previous, [companion]: { items: [...previous[companion].items, result] },
+      }));
+      setBackgroundChoices(previous => ({ ...previous, [companion]: result.id }));
+      localStorage.setItem(`glean-companion-background-${companion}`, result.id);
     } catch (reason) { setError((reason as Error).message); }
     finally { setUploadingBackground(null); }
   }
 
-  async function removeBackground(companion: CompanionTheme) {
+  async function removeBackground(companion: CompanionTheme, backgroundId: string) {
     setUploadingBackground(companion); setError('');
     try {
-      await api(`/companions/${companion}/background`, { method: 'DELETE' });
-      replaceCustomBackgroundUrl(companion);
-      setBackgrounds(previous => ({ ...previous, [companion]: { custom: false, version: '' } }));
-      setBackgroundChoices(previous => ({ ...previous, [companion]: 'default' }));
-      localStorage.removeItem(`glean-companion-background-${companion}`);
+      await api(`/companions/${companion}/background/${backgroundId}`, { method: 'DELETE' });
+      replaceCustomBackgroundUrl(companion, backgroundId);
+      const remaining = backgrounds[companion].items.filter(item => item.id !== backgroundId);
+      setBackgrounds(previous => ({ ...previous, [companion]: { items: remaining } }));
+      if (backgroundChoices[companion] === backgroundId) {
+        const next = remaining[0]?.id || 'default';
+        setBackgroundChoices(previous => ({ ...previous, [companion]: next }));
+        localStorage.setItem(`glean-companion-background-${companion}`, next);
+      }
     } catch (reason) { setError((reason as Error).message); }
     finally { setUploadingBackground(null); }
   }
@@ -244,8 +272,10 @@ export default function CompanionChat({ colorMode, onOpenNote, wallpaperMode, on
   const referenceState = grounded === false ? 'missing' : sources.length ? 'grounded' : 'idle';
 
   const avatarClass = `companion-avatar theme-${theme}`;
-  const activeBackgroundVariant: BackgroundVariant = colorMode === 'dark' && backgrounds[theme].custom && backgroundChoices[theme] === 'custom' ? 'custom' : 'default';
-  const activeBackgroundUrl = activeBackgroundVariant === 'custom' ? customBackgroundUrls[theme] : undefined;
+  const activeBackgroundId = colorMode === 'dark' && backgroundChoices[theme] !== 'default'
+    && backgrounds[theme].items.some(item => item.id === backgroundChoices[theme]) ? backgroundChoices[theme] : undefined;
+  const activeBackgroundVariant: BackgroundVariant = activeBackgroundId ? 'custom' : 'default';
+  const activeBackgroundUrl = activeBackgroundId ? customBackgroundUrls[theme]?.[activeBackgroundId] : undefined;
   const customBackgroundReady = activeBackgroundVariant === 'custom' && Boolean(activeBackgroundUrl);
 
   return <section className={`companion-page page-enter theme-${theme} ${wallpaperMode ? 'wallpaper-mode' : ''}`} aria-label={wallpaperMode ? '红颜知音全屏壁纸' : '红颜知音笔记问答'}>
@@ -294,16 +324,23 @@ export default function CompanionChat({ colorMode, onOpenNote, wallpaperMode, on
         <div className="companion-character-list">{companionThemes.map(item => <div className="companion-character-entry" key={item.id}>
           <button className={`companion-character ${theme === item.id ? 'selected' : ''}`} aria-pressed={theme === item.id} onClick={() => chooseTheme(item.id)}><span className={`companion-avatar portrait theme-${item.id}`}/><span><strong>{item.name}</strong><small>{item.description}</small></span>{theme === item.id ? <Check size={18}/> : <span/>}</button>
           {colorMode === 'dark' && theme === item.id && <section className="companion-dark-background" aria-label={`${item.name}的深色背景`}>
-            <header><span><Images size={15}/><strong>深色背景</strong></span><small>可在原图和专属图片间切换</small></header>
+            <header><span><Images size={15}/><strong>深色背景</strong></span><small>可添加多张专属图片</small></header>
             <div className="companion-background-options">
               <button className={activeBackgroundVariant === 'default' ? 'selected' : ''} onClick={() => chooseBackground('default')} aria-pressed={activeBackgroundVariant === 'default'}><i className={`theme-${theme}`}/><span>原始图片</span>{activeBackgroundVariant === 'default' && <Check size={13}/>}</button>
-              <button className={activeBackgroundVariant === 'custom' ? 'selected' : ''} disabled={!backgrounds[theme].custom || !customBackgroundUrls[theme]} onClick={() => chooseBackground('custom')} aria-pressed={activeBackgroundVariant === 'custom'}><i className={!customBackgroundUrls[theme] ? 'empty' : ''} style={customBackgroundUrls[theme] ? { backgroundImage: `url("${customBackgroundUrls[theme]}")` } : undefined}>{!customBackgroundUrls[theme] && <ImagePlus size={20}/>}</i><span>{backgrounds[theme].custom ? '专属图片' : '待上传'}</span>{activeBackgroundVariant === 'custom' && <Check size={13}/>}</button>
+              {backgrounds[theme].items.map((background, index) => <div className="companion-background-slot" key={background.id}>
+                <button className={activeBackgroundId === background.id ? 'selected' : ''} disabled={!customBackgroundUrls[theme]?.[background.id]} onClick={() => chooseBackground(background.id)} aria-pressed={activeBackgroundId === background.id}>
+                  <i style={customBackgroundUrls[theme]?.[background.id] ? { backgroundImage: `url("${customBackgroundUrls[theme]?.[background.id]}")` } : undefined}/>
+                  <span>专属图片 {index + 1}</span>{activeBackgroundId === background.id && <Check size={13}/>}
+                </button>
+                <button className="companion-background-remove" disabled={Boolean(uploadingBackground)} onClick={() => void removeBackground(theme, background.id)} aria-label={`移除专属图片 ${index + 1}`} title="移除这张图片"><Trash2 size={12}/></button>
+              </div>)}
+              <label className={`companion-background-upload ${uploadingBackground ? 'disabled' : ''}`}>
+                <i className="empty">{uploadingBackground === theme ? <LoaderCircle className="spin" size={20}/> : <ImagePlus size={20}/>}</i>
+                <span>{uploadingBackground === theme ? '正在上传…' : '待上传'}</span>
+                <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" disabled={Boolean(uploadingBackground)} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; void uploadBackground(theme, file); }}/>
+              </label>
             </div>
-            <div className="companion-background-actions">
-              <label className={uploadingBackground ? 'disabled' : ''}><ImagePlus size={14}/>{uploadingBackground === theme ? '正在上传…' : backgrounds[theme].custom ? '更换图片' : '上传图片'}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" disabled={Boolean(uploadingBackground)} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; void uploadBackground(theme, file); }}/></label>
-              {backgrounds[theme].custom && <button disabled={Boolean(uploadingBackground)} onClick={() => void removeBackground(theme)}>移除专属图片</button>}
-            </div>
-            <p>上传后会自动设为这位红颜的深色背景；浅色模式始终使用原始图片。</p>
+            <p>上传后会自动选中新图，并在末尾补上新的待上传槽位；浅色模式始终使用原始图片。</p>
           </section>}
         </div>)}</div>
         <footer>{confirmClear ? <><span>确定清空全部对话吗？</span><button className="danger" onClick={() => void clearHistory()}>确认清空</button><button onClick={() => setConfirmClear(false)}>取消</button></> : <button className="clear-chat" onClick={() => setConfirmClear(true)}><Trash2 size={15}/>清空对话记录</button>}</footer>

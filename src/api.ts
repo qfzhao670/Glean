@@ -7,7 +7,8 @@ export interface Stats { generated: number; curated: number; manual: number; not
 export interface RagSource { note_id: string; title: string; section: string; excerpt: string }
 export interface RagMessage { id: string; role: 'user' | 'assistant'; content: string; sources: RagSource[]; grounded: boolean; created_at: string }
 export type CompanionId = 'chuntang' | 'yuexia' | 'feiyan' | 'yunqu' | 'bilan' | 'chayan';
-export type CompanionBackgrounds = Record<CompanionId, { custom: boolean; version: string }>;
+export interface CompanionBackground { id: string; version: string }
+export type CompanionBackgrounds = Record<CompanionId, { items: CompanionBackground[] }>;
 export interface Settings { base_url: string; model: string; api_key: string | null; has_api_key?: boolean; transcription_base_url: string; transcription_model: string; transcription_language: 'auto' | 'zh' | 'en'; transcription_key: string | null; has_transcription_key?: boolean; vault_path: string; repository_path: string; notes_folder: string; chunk_chars: number; auto_patch: boolean }
 declare global { interface Window { glean?: { config: () => Promise<{ token: string; baseUrl: string }>; chooseVault: () => Promise<string | null>; revealNote: (id: string) => Promise<void>; openRepository: () => Promise<void> } } }
 let token = import.meta.env.VITE_GLEAN_TOKEN || '';
@@ -29,10 +30,10 @@ export async function uploadNoteImage(noteId: string, file: File): Promise<{ pat
   form.append('file', file);
   return api<{ path: string; alt: string }>(`/notes/${noteId}/images`, { method: 'POST', body: form });
 }
-export async function uploadCompanionBackground(companion: CompanionId, file: File): Promise<{ custom: boolean; version: string }> {
+export async function uploadCompanionBackground(companion: CompanionId, file: File): Promise<CompanionBackground> {
   const form = new FormData();
   form.append('file', file);
-  return api<{ custom: boolean; version: string }>(`/companions/${companion}/background`, { method: 'POST', body: form });
+  return api<CompanionBackground>(`/companions/${companion}/background`, { method: 'POST', body: form });
 }
 export function uploadJob(file: File, detailed: boolean, onProgress: (progress: number) => void): Promise<{ id: string }> {
   return new Promise((resolve, reject) => {

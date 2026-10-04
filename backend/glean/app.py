@@ -52,29 +52,51 @@ def get_note(note_id):
     return note
 
 
-def companion_background_path(companion_id: str):
+def validate_companion(companion_id: str):
     if companion_id not in COMPANION_IDS:
         raise HTTPException(404, '红颜不存在')
+
+
+def companion_background_items(companion_id: str):
+    validate_companion(companion_id)
     folder = store.DATA / 'companion-backgrounds'
-    matches = [path for path in folder.glob(f'{companion_id}.*') if path.suffix in COMPANION_IMAGE_SUFFIXES.values()]
-    return matches[0] if matches else None
+    items = []
+    # Releases before multi-slot backgrounds stored one image directly in this
+    # folder. Keep exposing it as a stable slot instead of rewriting user data.
+    legacy = sorted(path for path in folder.glob(f'{companion_id}.*') if path.suffix in COMPANION_IMAGE_SUFFIXES.values())
+    if legacy:
+        items.append(('legacy', legacy[0]))
+    companion_folder = folder / companion_id
+    if companion_folder.exists():
+        items.extend(
+            (path.stem, path) for path in companion_folder.iterdir()
+            if path.is_file() and re.fullmatch(r'[0-9a-f]{32}', path.stem)
+            and path.suffix in COMPANION_IMAGE_SUFFIXES.values()
+        )
+    return sorted(items, key=lambda item: (item[1].stat().st_mtime_ns, item[0]))
+
+
+def companion_background_path(companion_id: str, background_id: str):
+    for item_id, path in companion_background_items(companion_id):
+        if secrets.compare_digest(item_id, background_id):
+            return path
+    return None
 
 
 @app.get('/api/companions/backgrounds')
 def companion_backgrounds():
     result = {}
     for companion_id in COMPANION_IDS:
-        path = companion_background_path(companion_id)
-        result[companion_id] = {
-            'custom': path is not None,
-            'version': str(path.stat().st_mtime_ns) if path else '',
-        }
+        result[companion_id] = {'items': [
+            {'id': item_id, 'version': str(path.stat().st_mtime_ns)}
+            for item_id, path in companion_background_items(companion_id)
+        ]}
     return result
 
 
 @app.post('/api/companions/{companion_id}/background')
 async def upload_companion_background(companion_id: str, file: UploadFile = File(...)):
-    companion_background_path(companion_id)  # Validate the route parameter.
+    validate_companion(companion_id)
     suffix = COMPANION_IMAGE_SUFFIXES.get((file.content_type or '').lower())
     if not suffix:
         await file.close()
@@ -83,24 +105,22 @@ async def upload_companion_background(companion_id: str, file: UploadFile = File
         content = await file.read(20 * 1024 * 1024 + 1)
         if not content or len(content) > 20 * 1024 * 1024:
             raise ValueError('图片为空或超过 20 MB。')
-        folder = store.DATA / 'companion-backgrounds'
+        background_id = store.uid()
+        folder = store.DATA / 'companion-backgrounds' / companion_id
         folder.mkdir(parents=True, exist_ok=True, mode=0o700)
-        destination = folder / f'{companion_id}{suffix}'
-        temporary = folder / f'.{companion_id}-{store.uid()}.tmp'
+        destination = folder / f'{background_id}{suffix}'
+        temporary = folder / f'.{background_id}.tmp'
         temporary.write_bytes(content)
         temporary.chmod(0o600)
         temporary.replace(destination)
-        for old in folder.glob(f'{companion_id}.*'):
-            if old != destination and old.suffix in COMPANION_IMAGE_SUFFIXES.values():
-                old.unlink(missing_ok=True)
-        return {'custom': True, 'version': str(destination.stat().st_mtime_ns)}
+        return {'id': background_id, 'version': str(destination.stat().st_mtime_ns)}
     finally:
         await file.close()
 
 
-@app.get('/api/companions/{companion_id}/background')
-def companion_background(companion_id: str):
-    path = companion_background_path(companion_id)
+@app.get('/api/companions/{companion_id}/background/{background_id}')
+def companion_background(companion_id: str, background_id: str):
+    path = companion_background_path(companion_id, background_id)
     if not path:
         raise HTTPException(404, '尚未上传深色背景')
     return FileResponse(path, headers={
@@ -108,10 +128,29 @@ def companion_background(companion_id: str):
     })
 
 
-@app.delete('/api/companions/{companion_id}/background')
-def delete_companion_background(companion_id: str):
-    path = companion_background_path(companion_id)
+@app.delete('/api/companions/{companion_id}/background/{background_id}')
+def delete_companion_background(companion_id: str, background_id: str):
+    path = companion_background_path(companion_id, background_id)
     if path:
+        path.unlink(missing_ok=True)
+    return {'ok': True}
+
+
+# Preserve the old read/delete endpoints for clients upgrading alongside the
+# backend. The current UI always addresses a specific slot.
+@app.get('/api/companions/{companion_id}/background')
+def legacy_companion_background(companion_id: str):
+    items = companion_background_items(companion_id)
+    if not items:
+        raise HTTPException(404, '尚未上传深色背景')
+    return FileResponse(items[0][1], headers={
+        'Cache-Control': 'private, no-cache', 'X-Content-Type-Options': 'nosniff',
+    })
+
+
+@app.delete('/api/companions/{companion_id}/background')
+def delete_all_companion_backgrounds(companion_id: str):
+    for _item_id, path in companion_background_items(companion_id):
         path.unlink(missing_ok=True)
     return {'ok': True}
 

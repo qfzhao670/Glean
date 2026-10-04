@@ -175,28 +175,46 @@ def test_upload_rejects_non_txt_non_mp4(client):
     assert '.txt' in response.json()['detail']
 
 
-def test_companion_background_upload_list_read_and_delete(client):
+def test_companion_background_slots_upload_list_read_and_delete(client):
     initial = client.get('/api/companions/backgrounds')
     assert initial.status_code == 200
-    assert initial.json()['chuntang'] == {'custom': False, 'version': ''}
-    assert initial.json()['chayan'] == {'custom': False, 'version': ''}
+    assert initial.json()['chuntang'] == {'items': []}
+    assert initial.json()['chayan'] == {'items': []}
 
-    uploaded = client.post(
+    first = client.post(
         '/api/companions/chuntang/background',
-        files={'file': ('night.webp', b'custom-background', 'image/webp')},
+        files={'file': ('night.webp', b'first-background', 'image/webp')},
     )
-    assert uploaded.status_code == 200
-    assert uploaded.json()['custom'] is True
-    assert uploaded.json()['version']
+    second = client.post(
+        '/api/companions/chuntang/background',
+        files={'file': ('later.png', b'second-background', 'image/png')},
+    )
+    assert first.status_code == 200 and second.status_code == 200
+    assert first.json()['id'] != second.json()['id']
+    assert first.json()['version'] and second.json()['version']
 
-    image = client.get('/api/companions/chuntang/background')
-    assert image.status_code == 200
-    assert image.content == b'custom-background'
-    assert client.get('/api/companions/backgrounds').json()['chuntang']['custom'] is True
+    items = client.get('/api/companions/backgrounds').json()['chuntang']['items']
+    assert [item['id'] for item in items] == [first.json()['id'], second.json()['id']]
+    assert client.get(f'/api/companions/chuntang/background/{first.json()["id"]}').content == b'first-background'
+    assert client.get(f'/api/companions/chuntang/background/{second.json()["id"]}').content == b'second-background'
 
-    removed = client.delete('/api/companions/chuntang/background')
+    removed = client.delete(f'/api/companions/chuntang/background/{first.json()["id"]}')
     assert removed.status_code == 200
-    assert client.get('/api/companions/chuntang/background').status_code == 404
+    remaining = client.get('/api/companions/backgrounds').json()['chuntang']['items']
+    assert [item['id'] for item in remaining] == [second.json()['id']]
+    assert client.get(f'/api/companions/chuntang/background/{first.json()["id"]}').status_code == 404
+
+
+def test_companion_background_keeps_legacy_single_image_as_a_slot(client):
+    folder = store.DATA / 'companion-backgrounds'
+    folder.mkdir()
+    (folder / 'yuexia.png').write_bytes(b'legacy-background')
+
+    items = client.get('/api/companions/backgrounds').json()['yuexia']['items']
+    assert items[0]['id'] == 'legacy'
+    assert client.get('/api/companions/yuexia/background/legacy').content == b'legacy-background'
+    assert client.delete('/api/companions/yuexia/background/legacy').status_code == 200
+    assert client.get('/api/companions/backgrounds').json()['yuexia']['items'] == []
 
 
 def test_companion_background_validates_character_and_type(client):
