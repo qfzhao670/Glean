@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { AtSign, BookOpen, Check, ChevronUp, Expand, FileText, Heart, ImagePlus, Images, LoaderCircle, Minimize2, Paperclip, Send, Settings2, Trash2, X } from 'lucide-react';
+import { AtSign, BookOpen, Check, ChevronUp, Expand, FileText, Heart, ImagePlus, Images, LoaderCircle, Minimize2, Moon, Paperclip, Send, Settings2, Sun, Trash2, X } from 'lucide-react';
 import { api, apiBlob, streamJsonLines, uploadCompanionBackground, type CompanionBackgrounds, type CompanionId, type RagMessage, type RagSource } from '../api';
 import Markdown from './Markdown';
 
@@ -30,6 +30,7 @@ const companionThemes: { id: CompanionTheme; name: string; description: string }
 
 type CompanionChatProps = {
   colorMode: 'light' | 'dark';
+  onColorModeToggle: () => void;
   onOpenNote: (id: string) => void;
   wallpaperMode: boolean;
   onWallpaperModeChange: (active: boolean) => void;
@@ -44,7 +45,7 @@ const savedBackgroundChoices = () => Object.fromEntries(companionThemes.map(item
   item.id, localStorage.getItem(`glean-companion-background-${item.id}`) || 'custom',
 ])) as Record<CompanionTheme, BackgroundChoice>;
 
-export default function CompanionChat({ colorMode, onOpenNote, wallpaperMode, onWallpaperModeChange }: CompanionChatProps) {
+export default function CompanionChat({ colorMode, onColorModeToggle, onOpenNote, wallpaperMode, onWallpaperModeChange }: CompanionChatProps) {
   const [messages, setMessages] = useState<RagMessage[]>([]);
   const [question, setQuestion] = useState('');
   const [pendingQuestion, setPendingQuestion] = useState('');
@@ -285,6 +286,7 @@ export default function CompanionChat({ colorMode, onOpenNote, wallpaperMode, on
     <div className="companion-interface" aria-hidden={wallpaperMode} inert={wallpaperMode ? true : undefined}>
     <div className="companion-shade"/>
     <div className="companion-title"><Heart size={15}/><span>红颜知音</span><small>与你共读每一页心事</small></div>
+    <button className="companion-theme-toggle" onClick={onColorModeToggle} title={`切换为${colorMode === 'dark' ? '浅色' : '深色'}模式`} aria-label={`切换为${colorMode === 'dark' ? '浅色' : '深色'}模式`}>{colorMode === 'dark' ? <Sun size={17}/> : <Moon size={17}/>}</button>
     <button className="companion-wallpaper-button" onClick={showWallpaper} title="隐藏界面，全屏欣赏当前背景"><Expand size={16}/>欣赏壁纸</button>
     <button className="companion-settings-button" onClick={() => setSettingsOpen(true)}><Settings2 size={16}/>对话设置</button>
 
