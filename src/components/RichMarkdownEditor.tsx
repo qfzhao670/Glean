@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, type ClipboardEvent, type FormEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { apiBlob, uploadNoteImage } from '../api';
+import { resolveEditorMarkdown } from '../editorChanges';
 import Markdown from './Markdown';
 
 export interface RichMarkdownEditorHandle {
@@ -208,6 +209,7 @@ const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
   const editor = useRef<HTMLElement>(null);
   const objectUrls = useRef<string[]>([]);
   const pendingUploads = useRef(0);
+  const baseline = useRef('');
   const dirty = useRef(false);
 
   function revokeObjectUrls() {
@@ -244,31 +246,41 @@ const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
     if (!root || document.activeElement === root || dirty.current) return;
     revokeObjectUrls();
     root.innerHTML = renderToStaticMarkup(<Markdown text={value} noteId={noteId}/>);
+    baseline.current = editorMarkdown(root);
+    dirty.current = false;
     void loadLocalImages();
   }, [value, noteId]);
 
+  function editorState() {
+    return resolveEditorMarkdown(value, baseline.current, editorMarkdown(editor.current));
+  }
+
+  function updateDirty() {
+    const { changed } = editorState();
+    dirty.current = changed;
+    onDirtyChange(changed);
+  }
+
   const flush = () => {
-    const markdown = editorMarkdown(editor.current);
+    const { changed, markdown } = editorState();
     dirty.current = false;
-    onCommit(markdown);
+    if (changed) onCommit(markdown);
     onDirtyChange(false);
     return markdown;
   };
-  useImperativeHandle(forwardedRef, () => ({ getMarkdown: () => editorMarkdown(editor.current), flush }));
+  useImperativeHandle(forwardedRef, () => ({ getMarkdown: () => editorState().markdown, flush }));
   useEffect(() => () => revokeObjectUrls(), []);
 
   function input(_event: FormEvent<HTMLElement>) {
     replaceBlockShortcut(editor.current!) || replaceInlineShortcut();
-    dirty.current = true;
-    onDirtyChange(true);
+    updateDirty();
   }
 
   function keyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.key !== ' ' || event.nativeEvent.isComposing) return;
     if (!replaceBlockShortcutOnSpace(editor.current!)) return;
     event.preventDefault();
-    dirty.current = true;
-    onDirtyChange(true);
+    updateDirty();
   }
 
   async function paste(event: ClipboardEvent<HTMLElement>) {
@@ -292,8 +304,7 @@ const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
     });
     selection.removeAllRanges();
     selection.addRange(range);
-    dirty.current = true;
-    onDirtyChange(true);
+    updateDirty();
     pendingUploads.current += images.length;
     onUploadingChange(true);
     await Promise.all(images.map(async (file, index) => {
@@ -315,6 +326,7 @@ const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
         if (!pendingUploads.current) onUploadingChange(false);
       }
     }));
+    updateDirty();
     notify(images.length === 1 ? '图片已插入光标位置' : `${images.length} 张图片已插入光标位置`);
   }
 
