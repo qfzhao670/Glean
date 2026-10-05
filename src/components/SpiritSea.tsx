@@ -11,6 +11,7 @@ import sword07 from '../assets/spirit-sea/sword-07.png';
 import sword08 from '../assets/spirit-sea/sword-08.png';
 
 const swordModels = [sword01, sword02, sword03, sword04, sword05, sword06, sword07, sword08];
+const MIN_VISIBLE_AXIS_RATIO = .5;
 
 type SpiritSeaProps = {
   notes: Note[];
@@ -51,15 +52,23 @@ function seededRandom(seed: number) {
   };
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
 function placeSword(note: Note): SwordPlacement {
   const seed = hashString(note.id || note.title);
   const random = seededRandom(seed);
   const model = swordModels[Math.floor(random() * swordModels.length)];
   const depth = random();
-  // A little overscan at both sides lets foreground swords enter the frame naturally.
-  const x = -5 + random() * 110;
-  const baseY = 14 + depth * 90 + (random() - .5) * 6;
+  const x = 5 + random() * 90;
+  const rawBaseY = 14 + depth * 90 + (random() - .5) * 6;
   const height = 14 + Math.pow(depth, 1.42) * 74 + (random() - .5) * 5;
+  const baseY = clamp(
+    rawBaseY,
+    height * MIN_VISIBLE_AXIS_RATIO,
+    100 + height * (1 - MIN_VISIBLE_AXIS_RATIO),
+  );
   return {
     note,
     model,
@@ -82,6 +91,7 @@ function formatDate(value: string) {
 export default function SpiritSea({ notes, colorMode, onColorModeToggle, onOpenNote }: SpiritSeaProps) {
   const sceneRef = useRef<HTMLElement>(null);
   const [parallax, setParallax] = useState({ x: 0, y: 0 });
+  const [hoveredSwordId, setHoveredSwordId] = useState<string | null>(null);
   const swords = useMemo(() => notes.map(placeSword).sort((a, b) => a.depth - b.depth), [notes]);
 
   function moveScene(event: PointerEvent<HTMLElement>) {
@@ -98,7 +108,10 @@ export default function SpiritSea({ notes, colorMode, onColorModeToggle, onOpenN
     className="spirit-sea"
     aria-label="精神识海"
     onPointerMove={moveScene}
-    onPointerLeave={() => setParallax({ x: 0, y: 0 })}
+    onPointerLeave={() => {
+      setParallax({ x: 0, y: 0 });
+      setHoveredSwordId(null);
+    }}
     style={{ '--sea-shift-x': parallax.x, '--sea-shift-y': parallax.y } as CSSProperties}
   >
     <div className="spirit-sea-atmosphere" aria-hidden="true"><i/><i/><i/></div>
@@ -134,7 +147,7 @@ export default function SpiritSea({ notes, colorMode, onColorModeToggle, onOpenN
         '--sword-shift-y': `${parallax.y * (2 + sword.depth * 7)}px`,
       } as CSSProperties;
       return <button
-        className="spirit-sword"
+        className={`spirit-sword${hoveredSwordId === sword.note.id ? ' is-hovered' : ''}`}
         style={style}
         key={sword.note.id}
         onClick={() => onOpenNote(sword.note.id)}
@@ -142,6 +155,14 @@ export default function SpiritSea({ notes, colorMode, onColorModeToggle, onOpenN
       >
         <span className="spirit-sword-aura" aria-hidden="true"/>
         <img src={sword.model} alt="" draggable={false}/>
+        <span
+          className="spirit-sword-hit"
+          aria-hidden="true"
+          onPointerEnter={() => setHoveredSwordId(sword.note.id)}
+          onPointerLeave={() => setHoveredSwordId((currentId) => (
+            currentId === sword.note.id ? null : currentId
+          ))}
+        />
         <span className="spirit-sword-label">
           <small>{formatDate(sword.note.updated_at || sword.note.created_at)}</small>
           <strong>{sword.note.title}</strong>
