@@ -1406,10 +1406,11 @@ body{background:#edf1ed;color:#31493f}
 :root[data-theme="dark"] .companion-settings-dialog .danger{background:#a95747;color:#fff}
 :root[data-theme="dark"] .companion-settings-dialog .danger:hover{background:#bf6856}
 
-/* These pages sit on the persistent main-shell artwork; animating or repainting
-   a second background made the landscape visibly jump during navigation. */
+/* Fade dark note surfaces without moving them. Keeping the dark variant to
+   opacity-only avoids the landscape jump caused by the shared page transform. */
 :root[data-theme="dark"] .library.page-enter,
-:root[data-theme="dark"] .app-shell.note-focus .note-detail.page-enter{animation:none}
+:root[data-theme="dark"] .app-shell.note-focus .note-detail.page-enter{animation:dark-note-enter .35s ease-out both}
+@keyframes dark-note-enter{from{opacity:0}to{opacity:1}}
 
 @media(max-width:680px){
   :root[data-theme="dark"] .dashboard:before{background-position:60% top}
