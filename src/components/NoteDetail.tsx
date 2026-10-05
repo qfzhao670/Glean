@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent as ReactClipboardEvent, type CSSProperties, type FormEvent as ReactFormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, ArrowUp, BookOpen, Check, Download, ExternalLink, FileText, History, FolderOpen, LoaderCircle, MessageCircle, PanelRightClose, Save, Sparkles, X } from 'lucide-react';
 import { api, download, post, streamJsonLines, type Note } from '../api';
 import Markdown from './Markdown';
@@ -46,7 +46,7 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
 }) {
   const [note, setNote] = useState<Note | null>(null);
   const [tab, setTab] = useState<'read' | 'transcript'>('read');
-  const [titleEditing, setTitleEditing] = useState(initialEdit);
+  const [titleFocused, setTitleFocused] = useState(false);
   const [richDirty, setRichDirty] = useState(false);
   const [richFocused, setRichFocused] = useState(false);
   const [draft, setDraft] = useState('');
@@ -58,14 +58,14 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
   const [chatVisible, setChatVisible] = useState(false);
   const [streaming, setStreaming] = useState<{ question: string; answer: string } | null>(null);
   const [chatWidth, setChatWidth] = useState(() => Math.max(280, Math.min(520, Number(localStorage.getItem('glean-chat-width')) || 340)));
-  const titleEditor = useRef<HTMLInputElement>(null);
+  const titleEditor = useRef<HTMLHeadingElement>(null);
   const richEditor = useRef<RichMarkdownEditorHandle>(null);
   const columns = useRef<HTMLDivElement>(null);
   const noteDocument = useRef<HTMLElement>(null);
   const chatMessages = useRef<HTMLDivElement>(null);
   const pendingReadingPosition = useRef<ReadingPosition | null>(null);
   const dirty = !!note && (draft !== note.content || draftTitle !== note.title || richDirty);
-  const editing = titleEditing || richFocused || richDirty;
+  const editing = titleFocused || richFocused || richDirty;
 
   useEffect(() => { onDirtyChange(dirty); return () => onDirtyChange(false); }, [dirty, onDirtyChange]);
   useEffect(() => {
@@ -77,7 +77,7 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
     setNote(null);
     setError('');
     setTab('read');
-    setTitleEditing(initialEdit);
+    setTitleFocused(false);
     setRichDirty(false);
     setRichFocused(false);
     api<Note>(`/notes/${id}`).then(value => {
@@ -87,6 +87,11 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
       if (initialEdit) requestAnimationFrame(() => titleEditor.current?.focus());
     }).catch(reason => setError(reason.message));
   }, [id, initialEdit]);
+  useLayoutEffect(() => {
+    const element = titleEditor.current;
+    if (!element || document.activeElement === element || element.textContent === draftTitle) return;
+    element.textContent = draftTitle;
+  }, [draftTitle]);
   useEffect(() => {
     const element = chatMessages.current;
     if (element) element.scrollTo({ top: element.scrollHeight, behavior: 'smooth' });
@@ -118,6 +123,45 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
   function updateTitle(value: string) {
     setDraftTitle(value);
     setDraft(current => replaceDocumentTitle(current, value));
+  }
+
+  function readTitle(element: HTMLHeadingElement) {
+    const value = (element.textContent || '').replace(/[\r\n]+/g, ' ').slice(0, 160);
+    if (element.textContent !== value) {
+      element.textContent = value;
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      range.collapse(false);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
+    updateTitle(value);
+  }
+
+  function inputTitle(event: ReactFormEvent<HTMLHeadingElement>) {
+    readTitle(event.currentTarget);
+  }
+
+  function pasteTitle(event: ReactClipboardEvent<HTMLHeadingElement>) {
+    event.preventDefault();
+    const selection = window.getSelection();
+    if (!selection?.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    const text = document.createTextNode(event.clipboardData.getData('text/plain').replace(/[\r\n]+/g, ' '));
+    range.insertNode(text);
+    range.setStartAfter(text);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    readTitle(event.currentTarget);
+  }
+
+  function useTitleKeys(event: ReactKeyboardEvent<HTMLHeadingElement>) {
+    if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    event.currentTarget.blur();
   }
 
   function scrollContainer(visible = chatVisible) {
@@ -177,7 +221,8 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
     setNote(next);
     setDraft(next.content);
     setDraftTitle(next.title);
-    setTitleEditing(false);
+    titleEditor.current?.blur();
+    setTitleFocused(false);
     setRichDirty(false);
     setRichFocused(false);
     onUpdated();
@@ -248,8 +293,8 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
     {history && <div className="revision-panel"><div><strong>每一次生长，都有迹可循</strong><button className="icon-button" aria-label="关闭历史" onClick={() => setHistory(false)}><X size={16}/></button></div>{note?.revisions.length ? note.revisions.map(revision => <div className="revision-row" key={revision.id}><span>{({ chat_patch: '添加知识补丁', edit: '手动编辑', restore: '恢复版本', curate: 'AI 整理', original_import: '整理前的原始笔记' } as Record<string, string>)[revision.reason] || revision.reason}<small>{new Date(revision.created_at).toLocaleString('zh-CN')}</small></span><button className="button subtle small" disabled={!!busy || dirty} onClick={() => action('restore', async () => { const next = await post<Note>(`/notes/${id}/restore/${revision.id}`); setNote(next); setDraft(next.content); setDraftTitle(next.title); onUpdated(); notify('已恢复该次修改之前的内容'); })}>恢复修改前</button></div>) : <p className="muted">还没有修改记录。</p>}</div>}
     {!note ? <div className="loading-state"><LoaderCircle className="spin"/>正在展开笔记…</div> : <div ref={columns} className={`note-columns ${chatVisible ? '' : 'without-chat'}`} style={{ '--chat-width': `${chatWidth}px` } as CSSProperties} onScroll={saveReadingPosition}>
       <section ref={noteDocument} className="note-document" onScroll={saveReadingPosition}>
-        <header><div className="note-source"><span className="tag">{note.kind === 'manual' ? '手写笔记' : note.kind === 'txt' ? '字幕拾知' : note.kind === 'mp4' ? '声音拾知' : note.kind === 'url' ? '视频拾知' : '笔记整理'}</span><span>{new Date(note.created_at).toLocaleDateString('zh-CN')}</span></div>{titleEditing ? <input ref={titleEditor} className="inline-note-title-input" aria-label="编辑笔记标题" value={draftTitle} maxLength={160} onChange={event => updateTitle(event.target.value)} onBlur={() => setTitleEditing(false)} onMouseLeave={() => titleEditor.current?.blur()}/> : <button className="inline-note-title" title="点击编辑标题" onClick={() => { setTitleEditing(true); requestAnimationFrame(() => titleEditor.current?.focus()); }}>{draftTitle}</button>}<div className="note-source-line">来源：{note.source.startsWith('https://') ? <a href={note.source} target="_blank" rel="noreferrer">查看原视频 <ExternalLink size={12}/></a> : note.source}</div></header>
-        <div className="document-tabs"><button className={tab === 'read' ? 'active' : ''} onClick={() => setTab('read')}><BookOpen size={15}/>笔记</button><button className={tab === 'transcript' ? 'active' : ''} onClick={() => { richEditor.current?.flush(); setTitleEditing(false); setTab('transcript'); }}><FileText size={15}/>原始字幕</button><button className="document-curate" disabled={!!busy || dirty} onClick={() => action('curate', async () => { const job = await post<{ id: string }>('/jobs', { kind: 'curate', note_id: id }); onJobCreated(job.id); notify('已加入整理队列，完成后重新打开此笔记即可查看'); })}><Sparkles size={14}/>重新整理</button></div>
+        <header><div className="note-source"><span className="tag">{note.kind === 'manual' ? '手写笔记' : note.kind === 'txt' ? '字幕拾知' : note.kind === 'mp4' ? '声音拾知' : note.kind === 'url' ? '视频拾知' : '笔记整理'}</span><span>{new Date(note.created_at).toLocaleDateString('zh-CN')}</span></div><h1 ref={titleEditor} className="inline-note-title" contentEditable={!busy} suppressContentEditableWarning role="textbox" aria-label="笔记标题" aria-multiline="false" data-empty={!draftTitle} spellCheck onInput={inputTitle} onPaste={pasteTitle} onKeyDown={useTitleKeys} onFocus={() => setTitleFocused(true)} onBlur={() => setTitleFocused(false)}/><div className="note-source-line">来源：{note.source.startsWith('https://') ? <a href={note.source} target="_blank" rel="noreferrer">查看原视频 <ExternalLink size={12}/></a> : note.source}</div></header>
+        <div className="document-tabs"><button className={tab === 'read' ? 'active' : ''} onClick={() => setTab('read')}><BookOpen size={15}/>笔记</button><button className={tab === 'transcript' ? 'active' : ''} onClick={() => { richEditor.current?.flush(); titleEditor.current?.blur(); setTab('transcript'); }}><FileText size={15}/>原始字幕</button><button className="document-curate" disabled={!!busy || dirty} onClick={() => action('curate', async () => { const job = await post<{ id: string }>('/jobs', { kind: 'curate', note_id: id }); onJobCreated(job.id); notify('已加入整理队列，完成后重新打开此笔记即可查看'); })}><Sparkles size={14}/>重新整理</button></div>
         {tab === 'read' && <RichMarkdownEditor ref={richEditor} value={parts.body} noteId={id} disabled={!!busy && busy !== 'image'} onCommit={body => { setDraft(current => replaceDocumentBody(current, body)); setRichDirty(false); }} onDirtyChange={setRichDirty} onFocusChange={setRichFocused} onUploadingChange={uploading => setBusy(uploading ? 'image' : '')} onError={setError} notify={notify} onLink={onLink}/>}
         {tab === 'transcript' && <div className="transcript"><div className="transcript-heading"><span>生成时使用的完整字幕</span>{note.transcript && <button className="button subtle small" onClick={() => download(note.title + '-原始字幕', note.transcript, 'txt')}><Download size={14}/>导出</button>}</div>{note.transcript ? <pre>{note.transcript}</pre> : <div className="empty-inline">这篇笔记没有原始字幕。聊天会使用笔记正文作为上下文。</div>}</div>}
         {dirty && <div className="inline-save-bar"><span>有未保存的修改</span><button className="button primary small" disabled={!!busy || !draftTitle.trim()} onClick={save}>{busy === 'save' ? <LoaderCircle size={15} className="spin"/> : <Save size={15}/>}保存笔记</button></div>}

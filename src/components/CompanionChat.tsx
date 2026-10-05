@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { AtSign, BookOpen, Check, ChevronUp, Expand, FileText, Heart, ImagePlus, Images, LoaderCircle, Minimize2, Moon, Paperclip, Send, Settings2, Sun, Trash2, X } from 'lucide-react';
 import { api, apiBlob, streamJsonLines, uploadCompanionBackground, type CompanionBackgrounds, type CompanionId, type RagMessage, type RagSource } from '../api';
 import { shouldSubmitComposer } from '../composerKeys';
+import { getPreference, setPreference } from '../preferences';
 import Markdown from './Markdown';
 
 type StreamEvent =
@@ -43,7 +44,7 @@ const emptyBackgrounds = (): CompanionBackgrounds => ({
 });
 
 const savedBackgroundChoices = () => Object.fromEntries(companionThemes.map(item => [
-  item.id, localStorage.getItem(`glean-companion-background-${item.id}`) || 'custom',
+  item.id, getPreference(`glean-companion-background-${item.id}`) || 'custom',
 ])) as Record<CompanionTheme, BackgroundChoice>;
 
 export default function CompanionChat({ colorMode, onColorModeToggle, onOpenNote, wallpaperMode, onWallpaperModeChange }: CompanionChatProps) {
@@ -59,7 +60,7 @@ export default function CompanionChat({ colorMode, onColorModeToggle, onOpenNote
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [theme, setTheme] = useState<CompanionTheme>(() => {
-    const saved = localStorage.getItem('glean-companion-theme');
+    const saved = getPreference('glean-companion-theme');
     return saved === 'yuexia' || saved === 'feiyan' || saved === 'yunqu' || saved === 'bilan' || saved === 'chayan' ? saved : 'chuntang';
   });
   const [previousTheme, setPreviousTheme] = useState<CompanionTheme | null>(null);
@@ -83,8 +84,7 @@ export default function CompanionChat({ colorMode, onColorModeToggle, onOpenNote
         const next = saved === 'default' ? 'default'
           : items.some(item => item.id === saved) ? saved
           : items[0]?.id || 'default';
-        if (next === 'default') localStorage.setItem(`glean-companion-background-${companion.id}`, 'default');
-        else localStorage.setItem(`glean-companion-background-${companion.id}`, next);
+        setPreference(`glean-companion-background-${companion.id}`, next);
         return [companion.id, next];
       })) as Record<CompanionTheme, BackgroundChoice>);
     }).catch(reason => active && setError((reason as Error).message))
@@ -94,6 +94,10 @@ export default function CompanionChat({ colorMode, onColorModeToggle, onOpenNote
       Object.values(customBackgroundUrlsRef.current).forEach(urls => Object.values(urls).forEach(url => URL.revokeObjectURL(url)));
     };
   }, []);
+
+  useEffect(() => {
+    setPreference('glean-companion-theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     let active = true;
@@ -208,7 +212,7 @@ export default function CompanionChat({ colorMode, onColorModeToggle, onOpenNote
     setPreviousTheme(theme);
     setPreviousBackground({ variant: activeBackgroundVariant, url: activeBackgroundUrl });
     setTheme(next);
-    localStorage.setItem('glean-companion-theme', next);
+    setPreference('glean-companion-theme', next);
   }
 
   function chooseBackground(next: BackgroundChoice) {
@@ -216,7 +220,7 @@ export default function CompanionChat({ colorMode, onColorModeToggle, onOpenNote
     setPreviousTheme(theme);
     setPreviousBackground({ variant: activeBackgroundVariant, url: activeBackgroundUrl });
     setBackgroundChoices(previous => ({ ...previous, [theme]: next }));
-    localStorage.setItem(`glean-companion-background-${theme}`, next);
+    setPreference(`glean-companion-background-${theme}`, next);
   }
 
   function replaceCustomBackgroundUrl(companion: CompanionTheme, id: string, url?: string) {
@@ -242,7 +246,7 @@ export default function CompanionChat({ colorMode, onColorModeToggle, onOpenNote
         ...previous, [companion]: { items: [...previous[companion].items, result] },
       }));
       setBackgroundChoices(previous => ({ ...previous, [companion]: result.id }));
-      localStorage.setItem(`glean-companion-background-${companion}`, result.id);
+      setPreference(`glean-companion-background-${companion}`, result.id);
     } catch (reason) { setError((reason as Error).message); }
     finally { setUploadingBackground(null); }
   }
@@ -257,7 +261,7 @@ export default function CompanionChat({ colorMode, onColorModeToggle, onOpenNote
       if (backgroundChoices[companion] === backgroundId) {
         const next = remaining[0]?.id || 'default';
         setBackgroundChoices(previous => ({ ...previous, [companion]: next }));
-        localStorage.setItem(`glean-companion-background-${companion}`, next);
+        setPreference(`glean-companion-background-${companion}`, next);
       }
     } catch (reason) { setError((reason as Error).message); }
     finally { setUploadingBackground(null); }

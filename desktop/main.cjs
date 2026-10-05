@@ -1,15 +1,44 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, session } = require('electron');
 const { spawn } = require('node:child_process');
 const { randomBytes } = require('node:crypto');
+const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
-let backend, window, config;
+let backend, window, config, preferencesPath;
+let preferences = {};
 const root = path.join(__dirname, '..');
+const lightBackground = '#f5f7f5';
+const darkBackground = '#050d0e';
+const companionIds = new Set(['chuntang', 'yuexia', 'feiyan', 'yunqu', 'bilan', 'chayan']);
+
+function validPreference(key, value) {
+  if (key === 'glean-theme') return value === 'light' || value === 'dark';
+  if (key === 'glean-companion-theme') return companionIds.has(value);
+  if (/^glean-companion-background-(chuntang|yuexia|feiyan|yunqu|bilan|chayan)$/.test(key)) return value === 'default' || /^[a-f0-9]{32}$/.test(value);
+  return false;
+}
+
+function loadPreferences() {
+  preferencesPath = path.join(app.getPath('userData'), 'ui-preferences.json');
+  try {
+    const saved = JSON.parse(fs.readFileSync(preferencesPath, 'utf8'));
+    if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+      preferences = Object.fromEntries(Object.entries(saved).filter(([key, value]) => typeof value === 'string' && validPreference(key, value)));
+    }
+  } catch { preferences = {}; }
+}
+
+function savePreferences() {
+  if (!preferencesPath) return;
+  fs.mkdirSync(path.dirname(preferencesPath), { recursive: true });
+  fs.writeFileSync(preferencesPath, JSON.stringify(preferences, null, 2));
+}
 
 function freePort() {
   return new Promise(resolve => { const server = net.createServer(); server.listen(0, '127.0.0.1', () => { const port = server.address().port; server.close(() => resolve(port)); }); });
 }
 async function start() {
+  loadPreferences();
   const port = await freePort();
   const token = randomBytes(32).toString('hex');
   const dataDir = app.isPackaged ? path.join(app.getPath('userData'), 'data') : path.join(root, '.glean');
@@ -29,12 +58,22 @@ async function start() {
   createWindow();
 }
 function createWindow() {
-  window = new BrowserWindow({ width: 1440, height: 960, minWidth: 1000, minHeight: 700, title: '拾知 Glean', icon: path.join(__dirname, 'icon.png'), backgroundColor: '#f5f7f5', titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 22, y: 22 }, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true } });
+  window = new BrowserWindow({ width: 1440, height: 960, minWidth: 1000, minHeight: 700, title: '拾知 Glean', icon: path.join(__dirname, 'icon.png'), backgroundColor: preferences['glean-theme'] === 'dark' ? darkBackground : lightBackground, titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 22, y: 22 }, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true } });
   window.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   window.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== config.baseUrl) event.preventDefault(); });
   window.loadURL(config.baseUrl);
 }
 function trusted(event) { if (!event.senderFrame || new URL(event.senderFrame.url).origin !== config.baseUrl) throw new Error('不受信任的窗口'); }
+ipcMain.on('glean:preferences', event => { event.returnValue = preferences; });
+ipcMain.on('glean:set-preference', (event, key, value) => {
+  trusted(event);
+  if (typeof key !== 'string' || typeof value !== 'string' || !validPreference(key, value)) { event.returnValue = false; return; }
+  preferences = { ...preferences, [key]: value };
+  let saved = true;
+  try { savePreferences(); } catch { saved = false; }
+  if (key === 'glean-theme' && window && !window.isDestroyed()) window.setBackgroundColor(value === 'dark' ? darkBackground : lightBackground);
+  event.returnValue = saved;
+});
 ipcMain.handle('glean:config', event => { trusted(event); return config; });
 ipcMain.handle('glean:choose-vault', async event => {
   trusted(event);

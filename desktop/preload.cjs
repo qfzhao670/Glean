@@ -4,4 +4,6 @@ contextBridge.exposeInMainWorld('glean', {
   chooseVault: () => ipcRenderer.invoke('glean:choose-vault'),
   revealNote: id => ipcRenderer.invoke('glean:reveal-note', id),
   openRepository: () => ipcRenderer.invoke('glean:open-repository'),
+  preferences: ipcRenderer.sendSync('glean:preferences'),
+  setPreference: (key, value) => ipcRenderer.sendSync('glean:set-preference', key, value),
 });

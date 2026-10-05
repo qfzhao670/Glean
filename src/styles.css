@@ -128,8 +128,10 @@
 .chat-close{flex-shrink:0;margin-left:2px}
 .icon-button.danger{color:#a87868}
 .icon-button.danger:hover{background:#f3e7e2;color:#914f42}
-.inline-note-title{display:block;text-align:left;font:31px/1.6 var(--serif);margin:16px 0 12px;letter-spacing:1px;color:#38592f;border-radius:5px;max-width:100%}
+.inline-note-title{display:block;text-align:left;font:31px/1.6 var(--serif);margin:16px 0 12px;letter-spacing:1px;color:#38592f;border-radius:5px;max-width:100%;cursor:text;caret-color:#1c5b40;overflow-wrap:anywhere}
 .inline-note-title:hover{color:#527947;background:#edf3e8}
+.inline-note-title:focus,.inline-note-title:focus-visible{outline:none}
+.inline-note-title[data-empty="true"]:before{content:'未命名笔记';color:#a4aaa6;pointer-events:none}
 .editable-markdown{position:relative;cursor:text;border-radius:8px;margin-top:12px;padding:13px 12px 30px;margin-left:-12px}
 .inline-save-bar{position:sticky;bottom:12px;z-index:2;margin:18px 0 0;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 12px 10px 16px;border:1px solid #d5e0ca;border-radius:9px;background:#f7faf2eF;box-shadow:0 6px 20px #52634a18;font-size:10px;color:#7e916f;backdrop-filter:blur(8px)}
 .streaming-answer .stream-cursor{display:inline-block;width:2px;height:1em;margin-left:3px;vertical-align:-2px;background:#6f8f5c;animation:pulse .8s infinite}
@@ -150,15 +152,12 @@
 .column-resizer{background:linear-gradient(90deg,transparent 3px,#d7e1ce 3px,#d7e1ce 6px,transparent 6px)}
 .column-resizer span{width:1px;background:#f7f9f4}
 .column-resizer:hover,.column-resizer:focus-visible{background:linear-gradient(90deg,transparent 3px,#91aa7b 3px,#91aa7b 6px,transparent 6px)}
-.inline-note-title-input{display:block;width:100%;font:31px/1.6 var(--serif);margin:15px 0 11px;padding:0 7px;border:1px solid #cfdcc4;border-radius:6px;background:#fcfdf9;color:#38592f;letter-spacing:1px}
-.inline-note-title-input:focus{outline:2px solid #8eaa78;outline-offset:2px}
 .editable-markdown{background:transparent;padding:13px 0 30px;margin-left:0}
 .note-image{display:block;max-width:100%;max-height:70vh;margin:18px auto;border-radius:8px;object-fit:contain;box-shadow:0 5px 24px #1e382818}
 .rich-markdown-editor{min-height:260px;cursor:text;caret-color:#1c5b40;outline:none}
 .rich-markdown-editor:focus,.rich-markdown-editor:focus-visible{outline:none}
 .rich-markdown-editor:empty:before{content:'在这里开始记录…';color:#a4aaa6;pointer-events:none}
 .image-upload-placeholder{display:inline-flex;align-items:center;margin:8px 0;padding:8px 12px;border-radius:6px;background:#f0f3ef;color:#78837b;font-size:11px}
-@media(max-width:680px){.inline-note-title-input{font-size:26px}}
 
 /* Folder organization: the rail is both navigation and a generous drop target. */
 .library-layout{display:grid;grid-template-columns:184px minmax(0,1fr);gap:27px;align-items:start}
@@ -385,8 +384,7 @@
 
 /* Obsidian-like reading rhythm: a narrow column, dark type and quiet chrome. */
 .app-shell.note-focus .note-document header{margin:0 0 30px}
-.app-shell.note-focus .inline-note-title,
-.app-shell.note-focus .inline-note-title-input{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;font-size:24px;line-height:1.45;font-weight:650;letter-spacing:0;color:#171c18;margin:0;padding:0}
+.app-shell.note-focus .inline-note-title{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;font-size:24px;line-height:1.45;font-weight:650;letter-spacing:0;color:#171c18;margin:0;padding:0}
 .app-shell.note-focus .inline-note-title{border-radius:4px}
 .app-shell.note-focus .inline-note-title:hover{color:#171c18;background:#f3f4f2}
 .app-shell.note-focus .note-document>article{padding-top:0}
@@ -425,7 +423,7 @@
   .app-shell.note-focus .note-toolbar>.text-button{font-size:0;width:38px;padding:0}
   .app-shell.note-focus .note-toolbar .button.secondary{font-size:0;gap:0;padding:7px}
   .app-shell.note-focus .note-document,.app-shell.note-focus .note-columns:not(.without-chat) .note-document{padding:28px 20px 64px}
-  .app-shell.note-focus .inline-note-title,.app-shell.note-focus .inline-note-title-input{font-size:22px}
+  .app-shell.note-focus .inline-note-title{font-size:22px}
   .app-shell.note-focus .note-document .markdown{font-size:15px;line-height:1.8}
 }
 
@@ -1249,8 +1247,7 @@ body{background:#edf1ed;color:#31493f}
 :root[data-theme="dark"] .app-shell.note-focus .note-toolbar .icon-button.selected,
 :root[data-theme="dark"] .app-shell.note-focus .note-toolbar>.text-button:hover,
 :root[data-theme="dark"] .app-shell.note-focus .note-toolbar .button.secondary:hover:not(:disabled){background:#15362f;color:#baf0c9}
-:root[data-theme="dark"] .app-shell.note-focus .inline-note-title,
-:root[data-theme="dark"] .app-shell.note-focus .inline-note-title-input{color:#f0f5f2}
+:root[data-theme="dark"] .app-shell.note-focus .inline-note-title{color:#f0f5f2}
 :root[data-theme="dark"] .app-shell.note-focus .inline-note-title:hover{color:#fff;background:#12312d}
 :root[data-theme="dark"] .app-shell.note-focus .document-tabs{border-color:#29443e}
 :root[data-theme="dark"] .app-shell.note-focus .document-tabs>button{color:#8da097}

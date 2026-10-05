@@ -10,6 +10,7 @@ import GeneratingNote from './components/GeneratingNote';
 import HomeDashboard from './components/HomeDashboard';
 import CompanionChat from './components/CompanionChat';
 import SpiritSea from './components/SpiritSea';
+import { getPreference, setPreference } from './preferences';
 const emptyStats: Stats = { generated: 0, curated: 0, manual: 0, notes: 0, links: 0, minutes: 0, patches: 0, streak: 0, active_days: 0, activity: [], graph: [] };
 
 type ScrollbarMetrics = {
@@ -146,7 +147,7 @@ function OverlayScrollbar({ target }: { target: RefObject<HTMLElement | null> })
 
 function Logo({ small = false }: { small?: boolean }) { return <svg viewBox="0 0 36 40" width={small ? 23 : 31} height={small ? 27 : 35} fill="none" aria-hidden="true"><path d="M18 36V14M18 25C6 26 2 16 4 7C15 8 21 13 18 25ZM18 18C29 19 35 9 31 2C22 4 18 8 18 18Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><path d="M9 15L18 25M27 9L18 18" stroke="currentColor" strokeWidth="1.2"/></svg>; }
 export default function App() {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => localStorage.getItem('glean-theme') === 'dark' ? 'dark' : 'light');
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => getPreference('glean-theme') === 'dark' ? 'dark' : 'light');
   const [page, setPage] = useState<'home' | 'notes' | 'companion' | 'spirit' | 'settings'>('home'); const [selected, setSelected] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>(emptyStats); const [notes, setNotes] = useState<Note[]>([]); const [folders, setFolders] = useState<Folder[]>([]); const [jobs, setJobs] = useState<Job[]>([]); const [settings, setSettings] = useState<Settings | null>(null);
   const [modal, setModal] = useState<'txt' | 'mp4' | 'curate' | null>(null); const [toast, setToast] = useState(''); const [error, setError] = useState(''); const [showJobs, setShowJobs] = useState(false); const [dismissedJobs, setDismissedJobs] = useState<Set<string>>(new Set()); const [toastNote, setToastNote] = useState('');
@@ -169,7 +170,7 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
-    localStorage.setItem('glean-theme', theme);
+    setPreference('glean-theme', theme);
   }, [theme]);
   const toggleTheme = () => setTheme(current => current === 'light' ? 'dark' : 'light');
   const notify = useCallback((message: string, noteId = '') => { setToast(message); setToastNote(noteId); if (toastTimer.current) clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(''), 5000); }, []);

@@ -3,10 +3,11 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles.css';
 import { initialize } from './api';
+import { getPreference } from './preferences';
 
 // Apply the persisted theme before React mounts so the first painted frame
 // already uses the correct palette and background.
-const initialTheme = localStorage.getItem('glean-theme') === 'dark' ? 'dark' : 'light';
+const initialTheme = getPreference('glean-theme') === 'dark' ? 'dark' : 'light';
 document.documentElement.dataset.theme = initialTheme;
 document.documentElement.style.colorScheme = initialTheme;
 

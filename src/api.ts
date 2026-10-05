@@ -10,7 +10,7 @@ export type CompanionId = 'chuntang' | 'yuexia' | 'feiyan' | 'yunqu' | 'bilan' |
 export interface CompanionBackground { id: string; version: string }
 export type CompanionBackgrounds = Record<CompanionId, { items: CompanionBackground[] }>;
 export interface Settings { base_url: string; model: string; api_key: string | null; has_api_key?: boolean; transcription_base_url: string; transcription_model: string; transcription_language: 'auto' | 'zh' | 'en'; transcription_key: string | null; has_transcription_key?: boolean; vault_path: string; repository_path: string; notes_folder: string; chunk_chars: number; auto_patch: boolean }
-declare global { interface Window { glean?: { config: () => Promise<{ token: string; baseUrl: string }>; chooseVault: () => Promise<string | null>; revealNote: (id: string) => Promise<void>; openRepository: () => Promise<void> } } }
+declare global { interface Window { glean?: { config: () => Promise<{ token: string; baseUrl: string }>; chooseVault: () => Promise<string | null>; revealNote: (id: string) => Promise<void>; openRepository: () => Promise<void>; preferences: Record<string, string>; setPreference: (key: string, value: string) => void } } }
 let token = import.meta.env.VITE_GLEAN_TOKEN || '';
 let baseUrl = '';
 export async function initialize() { if (window.glean) { const config = await window.glean.config(); token = config.token; baseUrl = config.baseUrl; } }
