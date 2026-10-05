@@ -279,7 +279,7 @@ export default function CompanionChat({ colorMode, onColorModeToggle, onOpenNote
   const activeBackgroundUrl = activeBackgroundId ? customBackgroundUrls[theme]?.[activeBackgroundId] : undefined;
   const customBackgroundReady = activeBackgroundVariant === 'custom' && Boolean(activeBackgroundUrl);
 
-  return <section className={`companion-page page-enter theme-${theme} ${wallpaperMode ? 'wallpaper-mode' : ''}`} aria-label={wallpaperMode ? '红颜知音全屏壁纸' : '红颜知音笔记问答'}>
+  return <section className={`companion-page theme-${theme} ${wallpaperMode ? 'wallpaper-mode' : ''}`} aria-label={wallpaperMode ? '红颜知音全屏壁纸' : '红颜知音笔记问答'}>
     {previousTheme && <div className={`companion-background previous theme-${previousTheme}`} style={previousBackground?.variant === 'custom' && previousBackground.url ? { backgroundImage: `url("${previousBackground.url}")` } : undefined} aria-hidden="true"/>}
     <div key={`${theme}-${activeBackgroundVariant}-${activeBackgroundUrl || ''}`} className={`companion-background current theme-${theme} ${customBackgroundReady ? 'custom' : ''}`} style={customBackgroundReady ? { backgroundImage: `url("${activeBackgroundUrl}")` } : undefined} aria-hidden="true" onAnimationEnd={() => { setPreviousTheme(null); setPreviousBackground(null); }}/>
     <button className="companion-wallpaper-exit" onClick={hideWallpaper} aria-label="退出壁纸模式" aria-hidden={!wallpaperMode} tabIndex={wallpaperMode ? 0 : -1} title="退出壁纸模式（Esc）"><Minimize2 size={18}/><span>退出壁纸</span></button>

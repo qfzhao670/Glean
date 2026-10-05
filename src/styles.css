@@ -689,8 +689,8 @@ body{background:#edf1ed;color:#31493f}
 /* Personal-note RAG companion. The background is a clean project asset so the
    interface can evolve independently from the reference mockup. */
 .app-shell.companion-shell{height:100vh;overflow:hidden}
-.companion-shell>.main-shell{height:100vh;overflow:hidden}
-.companion-shell>.main-shell>main{height:100%;overflow:hidden}
+.companion-shell>.main-shell{height:100vh;overflow:hidden;background:#31463e}
+.companion-shell>.main-shell>main{height:100%;overflow:hidden;background:#31463e}
 .companion-shell>.sidebar,.companion-shell>.main-shell{transition:transform .56s cubic-bezier(.22,1,.36,1),width .56s cubic-bezier(.22,1,.36,1),margin-left .56s cubic-bezier(.22,1,.36,1),opacity .32s ease,visibility 0s linear}
 .companion-shell.companion-sidebar-collapsed>.sidebar{transform:translateX(-100%)}
 .companion-shell.companion-sidebar-collapsed>.main-shell{margin-left:0;width:100%}
