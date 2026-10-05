@@ -64,6 +64,7 @@ export default function CompanionChat({ colorMode, onColorModeToggle, onOpenNote
   const [previousTheme, setPreviousTheme] = useState<CompanionTheme | null>(null);
   const [previousBackground, setPreviousBackground] = useState<{ variant: BackgroundVariant; url?: string } | null>(null);
   const [backgrounds, setBackgrounds] = useState<CompanionBackgrounds>(emptyBackgrounds);
+  const [backgroundsResolved, setBackgroundsResolved] = useState(false);
   const [backgroundChoices, setBackgroundChoices] = useState<Record<CompanionTheme, BackgroundChoice>>(savedBackgroundChoices);
   const [customBackgroundUrls, setCustomBackgroundUrls] = useState<CustomBackgroundUrls>({});
   const [uploadingBackground, setUploadingBackground] = useState<CompanionTheme | null>(null);
@@ -85,7 +86,8 @@ export default function CompanionChat({ colorMode, onColorModeToggle, onOpenNote
         else localStorage.setItem(`glean-companion-background-${companion.id}`, next);
         return [companion.id, next];
       })) as Record<CompanionTheme, BackgroundChoice>);
-    }).catch(reason => active && setError((reason as Error).message));
+    }).catch(reason => active && setError((reason as Error).message))
+      .finally(() => active && setBackgroundsResolved(true));
     return () => {
       active = false;
       Object.values(customBackgroundUrlsRef.current).forEach(urls => Object.values(urls).forEach(url => URL.revokeObjectURL(url)));
@@ -278,10 +280,20 @@ export default function CompanionChat({ colorMode, onColorModeToggle, onOpenNote
   const activeBackgroundVariant: BackgroundVariant = activeBackgroundId ? 'custom' : 'default';
   const activeBackgroundUrl = activeBackgroundId ? customBackgroundUrls[theme]?.[activeBackgroundId] : undefined;
   const customBackgroundReady = activeBackgroundVariant === 'custom' && Boolean(activeBackgroundUrl);
+  const currentBackgroundReady = colorMode === 'light'
+    || backgroundChoices[theme] === 'default'
+    || customBackgroundReady
+    || (backgroundsResolved && activeBackgroundVariant === 'default');
 
   return <section className={`companion-page theme-${theme} ${wallpaperMode ? 'wallpaper-mode' : ''}`} aria-label={wallpaperMode ? '红颜知音全屏壁纸' : '红颜知音笔记问答'}>
     {previousTheme && <div className={`companion-background previous theme-${previousTheme}`} style={previousBackground?.variant === 'custom' && previousBackground.url ? { backgroundImage: `url("${previousBackground.url}")` } : undefined} aria-hidden="true"/>}
-    <div key={`${theme}-${activeBackgroundVariant}-${activeBackgroundUrl || ''}`} className={`companion-background current theme-${theme} ${customBackgroundReady ? 'custom' : ''}`} style={customBackgroundReady ? { backgroundImage: `url("${activeBackgroundUrl}")` } : undefined} aria-hidden="true" onAnimationEnd={() => { setPreviousTheme(null); setPreviousBackground(null); }}/>
+    {currentBackgroundReady && <div
+      key={`${theme}-${activeBackgroundVariant}-${activeBackgroundUrl || ''}`}
+      className={`companion-background current theme-${theme} ${customBackgroundReady ? 'custom' : ''}`}
+      style={customBackgroundReady ? { backgroundImage: `url("${activeBackgroundUrl}")` } : undefined}
+      aria-hidden="true"
+      onAnimationEnd={() => { setPreviousTheme(null); setPreviousBackground(null); }}
+    />}
     <button className="companion-wallpaper-exit" onClick={hideWallpaper} aria-label="退出壁纸模式" aria-hidden={!wallpaperMode} tabIndex={wallpaperMode ? 0 : -1} title="退出壁纸模式（Esc）"><Minimize2 size={18}/><span>退出壁纸</span></button>
     <div className="companion-interface" aria-hidden={wallpaperMode} inert={wallpaperMode ? true : undefined}>
     <div className="companion-shade"/>
