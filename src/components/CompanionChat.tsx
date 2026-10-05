@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { AtSign, BookOpen, Check, ChevronUp, Expand, FileText, Heart, ImagePlus, Images, LoaderCircle, Minimize2, Moon, Paperclip, Send, Settings2, Sun, Trash2, X } from 'lucide-react';
 import { api, apiBlob, streamJsonLines, uploadCompanionBackground, type CompanionBackgrounds, type CompanionId, type RagMessage, type RagSource } from '../api';
+import { shouldSubmitComposer } from '../composerKeys';
 import Markdown from './Markdown';
 
 type StreamEvent =
@@ -193,7 +194,7 @@ export default function CompanionChat({ colorMode, onColorModeToggle, onOpenNote
 
   function submit(event: FormEvent) { event.preventDefault(); void ask(question); }
   function useComposerKeys(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void ask(question); }
+    if (shouldSubmitComposer(event)) { event.preventDefault(); void ask(question); }
   }
   async function clearHistory() {
     try {
