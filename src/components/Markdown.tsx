@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { apiBlob } from '../api';
+import remarkHighlights from '../markdownHighlights';
 
 function NoteImage({ src, alt, noteId }: { src?: string; alt?: string; noteId?: string }) {
   const [url, setUrl] = useState('');
@@ -26,7 +27,6 @@ function NoteImage({ src, alt, noteId }: { src?: string; alt?: string; noteId?: 
 export default function Markdown({ text, onLink, noteId }: { text: string; onLink?: (title: string) => void; noteId?: string }) {
   const body = text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '')
     .replace(/(?<!!)\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, target, alias) => `[${alias || target}](glean:${encodeURIComponent(target)})`)
-    .replace(/> \[!\w+\][-+]?\s*(.*)/g, '> **$1**')
-    .replace(/==([^=\n]+)==/g, '**$1**');
-  return <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={url => url.startsWith('glean:') ? url : defaultUrlTransform(url)} components={{ a: ({ href, children }) => href?.startsWith('glean:') ? <button className="wikilink" data-wikilink-target={decodeURIComponent(href.slice(6))} onClick={() => onLink?.(decodeURIComponent(href.slice(6)).split('#')[0])}>{children}</button> : <a href={href} target="_blank" rel="noreferrer">{children}</a>, img: ({ src, alt }) => <NoteImage src={src} alt={alt} noteId={noteId}/> }}>{body}</ReactMarkdown>;
+    .replace(/> \[!\w+\][-+]?\s*(.*)/g, '> **$1**');
+  return <ReactMarkdown remarkPlugins={[remarkGfm, remarkHighlights]} urlTransform={url => url.startsWith('glean:') ? url : defaultUrlTransform(url)} components={{ a: ({ href, children }) => href?.startsWith('glean:') ? <button className="wikilink" data-wikilink-target={decodeURIComponent(href.slice(6))} onClick={() => onLink?.(decodeURIComponent(href.slice(6)).split('#')[0])}>{children}</button> : <a href={href} target="_blank" rel="noreferrer">{children}</a>, img: ({ src, alt }) => <NoteImage src={src} alt={alt} noteId={noteId}/> }}>{body}</ReactMarkdown>;
 }

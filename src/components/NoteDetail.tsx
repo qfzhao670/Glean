@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent as ReactClipboardEvent, type CSSProperties, type FormEvent as ReactFormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowLeft, ArrowUp, BookOpen, Check, Download, ExternalLink, FileText, History, FolderOpen, LoaderCircle, MessageCircle, PanelRightClose, Save, Sparkles, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ArrowLeft, ArrowUp, BookOpen, Check, Download, ExternalLink, FileText, History, FolderOpen, LoaderCircle, MessageCircle, PanelRightClose, Sparkles, X } from 'lucide-react';
 import { api, download, post, streamJsonLines, type Note } from '../api';
 import Markdown from './Markdown';
 import RichMarkdownEditor, { type RichMarkdownEditorHandle } from './RichMarkdownEditor';
@@ -57,6 +58,10 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
   const [history, setHistory] = useState(false);
   const [chatVisible, setChatVisible] = useState(false);
   const [streaming, setStreaming] = useState<{ question: string; answer: string } | null>(null);
+  const [imagePreview, setImagePreview] = useState<{ src: string; alt: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [editVersion, setEditVersion] = useState(0);
   const [chatWidth, setChatWidth] = useState(() => Math.max(280, Math.min(520, Number(localStorage.getItem('glean-chat-width')) || 340)));
   const titleEditor = useRef<HTMLHeadingElement>(null);
   const richEditor = useRef<RichMarkdownEditorHandle>(null);
@@ -64,6 +69,10 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
   const noteDocument = useRef<HTMLElement>(null);
   const chatMessages = useRef<HTMLDivElement>(null);
   const pendingReadingPosition = useRef<ReadingPosition | null>(null);
+  const draftRef = useRef(draft);
+  const draftTitleRef = useRef(draftTitle);
+  draftRef.current = draft;
+  draftTitleRef.current = draftTitle;
   const dirty = !!note && (draft !== note.content || draftTitle !== note.title || richDirty);
   const editing = titleFocused || richFocused || richDirty;
 
@@ -80,6 +89,10 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
     setTitleFocused(false);
     setRichDirty(false);
     setRichFocused(false);
+    setImagePreview(null);
+    setSaving(false);
+    setSaveFailed(false);
+    setEditVersion(0);
     api<Note>(`/notes/${id}`).then(value => {
       setNote(value);
       setDraft(value.content);
@@ -87,6 +100,12 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
       if (initialEdit) requestAnimationFrame(() => titleEditor.current?.focus());
     }).catch(reason => setError(reason.message));
   }, [id, initialEdit]);
+  useEffect(() => {
+    if (!imagePreview) return;
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setImagePreview(null); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [imagePreview]);
   useLayoutEffect(() => {
     const element = titleEditor.current;
     if (!element || document.activeElement === element || element.textContent === draftTitle) return;
@@ -121,6 +140,7 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
   }
 
   function updateTitle(value: string) {
+    setSaveFailed(false);
     setDraftTitle(value);
     setDraft(current => replaceDocumentTitle(current, value));
   }
@@ -208,26 +228,46 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
 
   function currentDraft() {
     const body = richEditor.current?.getMarkdown();
-    if (body === undefined || body === documentParts(draft).body) return draft;
-    return replaceDocumentBody(draft, body);
+    const current = draftRef.current;
+    if (body === undefined || body === documentParts(current).body) return current;
+    return replaceDocumentBody(current, body);
   }
 
-  const save = () => action('save', async () => {
-    if (!note) return;
+  async function saveAutomatically(noteAtStart: Note) {
+    if (saving) return;
     const content = currentDraft();
-    const next = await api<Note>(`/notes/${id}`, {
-      method: 'PUT', body: JSON.stringify({ title: draftTitle.trim(), content, expected: note.content }),
-    });
-    setNote(next);
-    setDraft(next.content);
-    setDraftTitle(next.title);
-    titleEditor.current?.blur();
-    setTitleFocused(false);
-    setRichDirty(false);
-    setRichFocused(false);
-    onUpdated();
-    notify('笔记已保存到本地仓库');
-  });
+    const title = draftTitleRef.current.trim();
+    if (!title) return;
+    setSaving(true);
+    setSaveFailed(false);
+    setError('');
+    try {
+      const next = await api<Note>(`/notes/${id}`, {
+        method: 'PUT', body: JSON.stringify({ title, content, expected: noteAtStart.content }),
+      });
+      const unchangedSinceRequest = currentDraft() === content && draftTitleRef.current.trim() === title;
+      setNote(next);
+      if (unchangedSinceRequest) {
+        draftRef.current = next.content;
+        draftTitleRef.current = next.title;
+        setDraft(next.content);
+        setDraftTitle(next.title);
+        setRichDirty(false);
+      }
+      onUpdated();
+    } catch (reason) {
+      setSaveFailed(true);
+      setError((reason as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!note || !dirty || saving || busy || !draftTitle.trim()) return;
+    const timer = window.setTimeout(() => { void saveAutomatically(note); }, saveFailed ? 5000 : 900);
+    return () => window.clearTimeout(timer);
+  }, [note, dirty, saving, saveFailed, busy, draft, draftTitle, editVersion, id]);
 
   async function ask(text: string) {
     setBusy('chat');
@@ -295,9 +335,9 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
       <section ref={noteDocument} className="note-document" onScroll={saveReadingPosition}>
         <header><div className="note-source"><span className="tag">{note.kind === 'manual' ? '手写笔记' : note.kind === 'txt' ? '字幕拾知' : note.kind === 'mp4' ? '声音拾知' : note.kind === 'url' ? '视频拾知' : '笔记整理'}</span><span>{new Date(note.created_at).toLocaleDateString('zh-CN')}</span></div><h1 ref={titleEditor} className="inline-note-title" contentEditable={!busy} suppressContentEditableWarning role="textbox" aria-label="笔记标题" aria-multiline="false" data-empty={!draftTitle} spellCheck onInput={inputTitle} onPaste={pasteTitle} onKeyDown={useTitleKeys} onFocus={() => setTitleFocused(true)} onBlur={() => setTitleFocused(false)}/><div className="note-source-line">来源：{note.source.startsWith('https://') ? <a href={note.source} target="_blank" rel="noreferrer">查看原视频 <ExternalLink size={12}/></a> : note.source}</div></header>
         <div className="document-tabs"><button className={tab === 'read' ? 'active' : ''} onClick={() => setTab('read')}><BookOpen size={15}/>笔记</button><button className={tab === 'transcript' ? 'active' : ''} onClick={() => { richEditor.current?.flush(); titleEditor.current?.blur(); setTab('transcript'); }}><FileText size={15}/>原始字幕</button><button className="document-curate" disabled={!!busy || dirty} onClick={() => action('curate', async () => { const job = await post<{ id: string }>('/jobs', { kind: 'curate', note_id: id }); onJobCreated(job.id); notify('已加入整理队列，完成后重新打开此笔记即可查看'); })}><Sparkles size={14}/>重新整理</button></div>
-        {tab === 'read' && <RichMarkdownEditor ref={richEditor} value={parts.body} noteId={id} disabled={!!busy && busy !== 'image'} onCommit={body => { setDraft(current => replaceDocumentBody(current, body)); setRichDirty(false); }} onDirtyChange={setRichDirty} onFocusChange={setRichFocused} onUploadingChange={uploading => setBusy(uploading ? 'image' : '')} onError={setError} notify={notify} onLink={onLink}/>}
+        {tab === 'read' && <RichMarkdownEditor ref={richEditor} value={parts.body} noteId={id} disabled={!!busy && busy !== 'image'} onCommit={body => { setDraft(current => replaceDocumentBody(current, body)); setRichDirty(false); }} onDirtyChange={setRichDirty} onFocusChange={setRichFocused} onUploadingChange={uploading => setBusy(uploading ? 'image' : '')} onError={setError} notify={notify} onLink={onLink} onEdit={() => { setSaveFailed(false); setEditVersion(value => value + 1); }} onImagePreview={(src, alt) => setImagePreview({ src, alt })}/>}
         {tab === 'transcript' && <div className="transcript"><div className="transcript-heading"><span>生成时使用的完整字幕</span>{note.transcript && <button className="button subtle small" onClick={() => download(note.title + '-原始字幕', note.transcript, 'txt')}><Download size={14}/>导出</button>}</div>{note.transcript ? <pre>{note.transcript}</pre> : <div className="empty-inline">这篇笔记没有原始字幕。聊天会使用笔记正文作为上下文。</div>}</div>}
-        {dirty && <div className="inline-save-bar"><span>有未保存的修改</span><button className="button primary small" disabled={!!busy || !draftTitle.trim()} onClick={save}>{busy === 'save' ? <LoaderCircle size={15} className="spin"/> : <Save size={15}/>}保存笔记</button></div>}
+        {(dirty || saving) && <div className="inline-save-bar auto-save-bar" role="status" aria-live="polite">{saving ? <><LoaderCircle size={14} className="spin"/><span>正在自动保存…</span></> : <><span className="status-dot"/><span>{draftTitle.trim() ? '修改将在片刻后自动保存' : '填写标题后将自动保存'}</span></>}</div>}
         <div className="note-location"><Check size={13}/><span>{note.note_file ? '已保存 · ' + note.note_file : '等待保存到本地仓库'}</span></div>
       </section>
       {chatVisible && <button className="column-resizer" role="separator" aria-label="拖动调整对话框宽度" aria-orientation="vertical" onPointerDown={startResize} onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setChatWidth(value => Math.max(280, Math.min(620, value + (event.key === 'ArrowLeft' ? 20 : -20)))); } }}><span/></button>}
@@ -312,5 +352,9 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
         <p className="chat-footnote">有价值的解释自动补入笔记，支持版本恢复</p>
       </aside>}
     </div>}
+    {imagePreview && createPortal(<div className="note-image-preview" role="dialog" aria-modal="true" aria-label="图片预览" onMouseDown={event => { if (event.target === event.currentTarget) setImagePreview(null); }}>
+      <button className="note-image-preview-close" type="button" aria-label="关闭图片预览" onClick={() => setImagePreview(null)}><X size={22}/></button>
+      <img src={imagePreview.src} alt={imagePreview.alt}/>
+    </div>, document.body)}
   </div>;
 }

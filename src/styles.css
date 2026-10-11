@@ -134,6 +134,7 @@
 .inline-note-title[data-empty="true"]:before{content:'未命名笔记';color:#a4aaa6;pointer-events:none}
 .editable-markdown{position:relative;cursor:text;border-radius:8px;margin-top:12px;padding:13px 12px 30px;margin-left:-12px}
 .inline-save-bar{position:sticky;bottom:12px;z-index:2;margin:18px 0 0;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 12px 10px 16px;border:1px solid #d5e0ca;border-radius:9px;background:#f7faf2eF;box-shadow:0 6px 20px #52634a18;font-size:10px;color:#7e916f;backdrop-filter:blur(8px)}
+.inline-save-bar.auto-save-bar{justify-content:flex-start;gap:8px;width:max-content;max-width:100%;margin-left:auto;padding-right:16px}
 .streaming-answer .stream-cursor{display:inline-block;width:2px;height:1em;margin-left:3px;vertical-align:-2px;background:#6f8f5c;animation:pulse .8s infinite}
 
 @media(min-width:951px) and (max-width:1200px){.note-columns:not(.without-chat){grid-template-columns:minmax(0,1fr) 9px var(--chat-width);gap:0}.note-document{padding-right:22px}.chat-panel{padding-left:18px}}
@@ -154,6 +155,19 @@
 .column-resizer:hover,.column-resizer:focus-visible{background:linear-gradient(90deg,transparent 3px,#91aa7b 3px,#91aa7b 6px,transparent 6px)}
 .editable-markdown{background:transparent;padding:13px 0 30px;margin-left:0}
 .note-image{display:block;max-width:100%;max-height:70vh;margin:18px auto;border-radius:8px;object-fit:contain;box-shadow:0 5px 24px #1e382818}
+.rich-markdown-editor .note-image{cursor:zoom-in;transition:transform .18s ease,box-shadow .18s ease}
+.rich-markdown-editor .note-image:hover{transform:scale(1.012);box-shadow:0 8px 30px #1e382824}
+.markdown mark{padding:.08em .16em;border-radius:3px;background:linear-gradient(180deg,transparent 12%,#f4df87 12%,#f4df87 90%,transparent 90%);color:inherit;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.note-selection-menu{position:fixed;z-index:220;min-width:118px;padding:5px;border:1px solid #dce3dc;border-radius:8px;background:#fff;box-shadow:0 10px 30px #1c302329}
+.note-selection-menu button{width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:5px;color:#334b3f;font-size:12px;text-align:left}
+.note-selection-menu button+button{margin-top:2px}
+.note-selection-menu button:hover,.note-selection-menu button:focus-visible{background:#edf2ed;color:#1f553c;outline:none}
+.note-image-preview{position:fixed;z-index:210;inset:0;display:flex;align-items:center;justify-content:center;padding:5vh 5vw;background:#10251c66;backdrop-filter:blur(11px);-webkit-backdrop-filter:blur(11px);cursor:zoom-out;animation:image-preview-fade .18s ease-out}
+.note-image-preview>img{display:block;max-width:min(1120px,90vw);max-height:88vh;border-radius:10px;object-fit:contain;cursor:default;box-shadow:0 24px 90px #07130d73;animation:image-preview-in .22s cubic-bezier(.22,1,.36,1)}
+.note-image-preview-close{position:fixed;z-index:1;top:24px;right:28px;width:40px;height:40px;display:grid;place-items:center;border-radius:50%;background:#10251c8f;color:#fff;cursor:pointer;backdrop-filter:blur(6px)}
+.note-image-preview-close:hover{background:#10251ccc}
+@keyframes image-preview-fade{from{opacity:0}to{opacity:1}}
+@keyframes image-preview-in{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
 .rich-markdown-editor{min-height:260px;cursor:text;caret-color:#1c5b40;outline:none}
 .rich-markdown-editor:focus,.rich-markdown-editor:focus-visible{outline:none}
 .rich-markdown-editor:empty:before{content:'在这里开始记录…';color:#a4aaa6;pointer-events:none}
@@ -1282,6 +1296,11 @@ body{background:#edf1ed;color:#31493f}
 :root[data-theme="dark"] .app-shell.note-focus .note-document .markdown th{background:#12312d;color:#e8f1ec}
 :root[data-theme="dark"] .app-shell.note-focus .note-document .markdown a,
 :root[data-theme="dark"] .app-shell.note-focus .note-document .wikilink{color:#8de7aa;border-color:#48775e}
+:root[data-theme="dark"] .markdown mark{background:linear-gradient(180deg,transparent 12%,#8c742f 12%,#8c742f 90%,transparent 90%);color:#fff4bd}
+:root[data-theme="dark"] .note-selection-menu{border-color:#35564e;background:#0d2926;box-shadow:0 14px 38px #0009}
+:root[data-theme="dark"] .note-selection-menu button{color:#d5e5dc}
+:root[data-theme="dark"] .note-selection-menu button:hover,
+:root[data-theme="dark"] .note-selection-menu button:focus-visible{background:#194136;color:#baf0c9}
 :root[data-theme="dark"] .image-ref{border-color:#43685b;color:#8eb2a0}
 :root[data-theme="dark"] .app-shell.note-focus .chat-panel{border-color:#29443e;background:rgba(7,25,24,.92)}
 :root[data-theme="dark"] .chat-icon,

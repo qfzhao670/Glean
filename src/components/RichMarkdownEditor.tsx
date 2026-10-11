@@ -1,4 +1,6 @@
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, type ClipboardEvent, type FormEvent, type KeyboardEvent, type MouseEvent } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent, type MouseEvent } from 'react';
+import { createPortal } from 'react-dom';
+import { Eraser, Highlighter } from 'lucide-react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { apiBlob, uploadNoteImage } from '../api';
 import { resolveEditorMarkdown } from '../editorChanges';
@@ -55,6 +57,7 @@ function nodeMarkdown(node: Node): string {
   if (tag === 'STRONG' || tag === 'B') return `**${content()}**`;
   if (tag === 'EM' || tag === 'I') return `*${content()}*`;
   if (tag === 'DEL' || tag === 'S') return `~~${content()}~~`;
+  if (tag === 'MARK') return `==${content()}==`;
   if (tag === 'CODE' && node.parentElement?.tagName !== 'PRE') return `\`${content()}\``;
   if (tag === 'PRE') {
     const code = node.querySelector('code');
@@ -173,7 +176,7 @@ function replaceInlineShortcut() {
   const before = node.nodeValue.slice(0, caret);
   const patterns: Array<[RegExp, string]> = [
     [/\*\*([^*\n]+)\*\*$/, 'strong'], [/__([^_\n]+)__$/, 'strong'],
-    [/~~([^~\n]+)~~$/, 'del'], [/`([^`\n]+)`$/, 'code'], [/==([^=\n]+)==$/, 'strong'],
+    [/~~([^~\n]+)~~$/, 'del'], [/`([^`\n]+)`$/, 'code'], [/==([^=\n]+)==$/, 'mark'],
   ];
   for (const [pattern, tag] of patterns) {
     const match = before.match(pattern);
@@ -194,6 +197,54 @@ function replaceInlineShortcut() {
   return false;
 }
 
+type SelectedText = { node: Text; start: number; end: number };
+
+function selectedTextInRange(range: Range, root: HTMLElement) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const selected: SelectedText[] = [];
+  let current = walker.nextNode();
+  while (current) {
+    const node = current as Text;
+    if (range.intersectsNode(node)) {
+      const start = node === range.startContainer ? range.startOffset : 0;
+      const end = node === range.endContainer ? range.endOffset : node.length;
+      if (end > start) selected.push({ node, start, end });
+    }
+    current = walker.nextNode();
+  }
+
+  return selected;
+}
+
+function highlightRange(range: Range, root: HTMLElement) {
+  const selected = selectedTextInRange(range, root).filter(({ node }) => !node.parentElement?.closest('mark'));
+  for (const { node, start, end } of selected.reverse()) {
+    if (end < node.length) node.splitText(end);
+    const highlighted = start ? node.splitText(start) : node;
+    const mark = document.createElement('mark');
+    highlighted.replaceWith(mark);
+    mark.append(highlighted);
+  }
+  return selected.length > 0;
+}
+
+function removeHighlightRange(range: Range, root: HTMLElement) {
+  const selected = selectedTextInRange(range, root).filter(({ node }) => !!node.parentElement?.closest('mark'));
+  for (const { node, start, end } of selected.reverse()) {
+    if (end < node.length) node.splitText(end);
+    const plain = start ? node.splitText(start) : node;
+    const mark = plain.parentElement?.closest('mark');
+    if (!mark || plain.parentNode !== mark) continue;
+
+    const suffix = mark.cloneNode(false) as HTMLElement;
+    while (plain.nextSibling) suffix.append(plain.nextSibling);
+    mark.after(plain);
+    if (suffix.hasChildNodes()) plain.after(suffix);
+    if (!mark.hasChildNodes()) mark.remove();
+  }
+  return selected.length > 0;
+}
+
 const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
   value: string;
   noteId: string;
@@ -205,12 +256,15 @@ const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
   onError: (message: string) => void;
   notify: (message: string) => void;
   onLink: (title: string) => void;
-}>(({ value, noteId, disabled, onCommit, onDirtyChange, onFocusChange, onUploadingChange, onError, notify, onLink }, forwardedRef) => {
+  onEdit?: () => void;
+  onImagePreview?: (src: string, alt: string) => void;
+}>(({ value, noteId, disabled, onCommit, onDirtyChange, onFocusChange, onUploadingChange, onError, notify, onLink, onEdit, onImagePreview }, forwardedRef) => {
   const editor = useRef<HTMLElement>(null);
   const objectUrls = useRef<string[]>([]);
   const pendingUploads = useRef(0);
   const baseline = useRef('');
   const dirty = useRef(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; range: Range; canHighlight: boolean; canRemoveHighlight: boolean } | null>(null);
 
   function revokeObjectUrls() {
     objectUrls.current.forEach(url => URL.revokeObjectURL(url));
@@ -259,6 +313,7 @@ const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
     const { changed } = editorState();
     dirty.current = changed;
     onDirtyChange(changed);
+    if (changed) onEdit?.();
   }
 
   const flush = () => {
@@ -270,6 +325,21 @@ const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
   };
   useImperativeHandle(forwardedRef, () => ({ getMarkdown: () => editorState().markdown, flush }));
   useEffect(() => () => revokeObjectUrls(), []);
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const escape = (event: globalThis.KeyboardEvent) => { if (event.key === 'Escape') close(); };
+    window.addEventListener('pointerdown', close);
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('keydown', escape);
+    return () => {
+      window.removeEventListener('pointerdown', close);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('keydown', escape);
+    };
+  }, [contextMenu]);
 
   function input(_event: FormEvent<HTMLElement>) {
     replaceBlockShortcut(editor.current!) || replaceInlineShortcut();
@@ -331,28 +401,86 @@ const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
   }
 
   function click(event: MouseEvent<HTMLElement>) {
+    const image = (event.target as HTMLElement).closest<HTMLImageElement>('img.note-image');
+    if (image && onImagePreview) {
+      event.preventDefault();
+      onImagePreview(image.currentSrc || image.src, image.alt || '笔记图片');
+      return;
+    }
     const link = (event.target as HTMLElement).closest<HTMLElement>('[data-wikilink-target]');
     if (!link) return;
     event.preventDefault();
     onLink((link.dataset.wikilinkTarget || '').split('#')[0]);
   }
 
-  return <article
-    ref={editor}
-    className="markdown editable-markdown rich-markdown-editor"
-    contentEditable={!disabled}
-    suppressContentEditableWarning
-    role="textbox"
-    aria-label="笔记正文"
-    aria-multiline="true"
-    spellCheck
-    onInput={input}
-    onKeyDown={keyDown}
-    onPaste={paste}
-    onClick={click}
-    onFocus={() => onFocusChange(true)}
-    onBlur={() => { flush(); onFocusChange(false); }}
-  />;
+  function openContextMenu(event: MouseEvent<HTMLElement>) {
+    const root = editor.current;
+    const selection = window.getSelection();
+    if (!root || !selection?.rangeCount || selection.isCollapsed || !selection.toString().trim()) return;
+    const range = selection.getRangeAt(0);
+    if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return;
+    const selected = selectedTextInRange(range, root);
+    const canHighlight = selected.some(({ node }) => !node.parentElement?.closest('mark'));
+    const canRemoveHighlight = selected.some(({ node }) => !!node.parentElement?.closest('mark'));
+    if (!canHighlight && !canRemoveHighlight) return;
+    event.preventDefault();
+    const menuHeight = canHighlight && canRemoveHighlight ? 91 : 52;
+    setContextMenu({
+      x: Math.min(event.clientX, window.innerWidth - 132),
+      y: Math.min(event.clientY, window.innerHeight - menuHeight),
+      range: range.cloneRange(),
+      canHighlight,
+      canRemoveHighlight,
+    });
+  }
+
+  function applyHighlight() {
+    const root = editor.current;
+    if (!root || !contextMenu || !highlightRange(contextMenu.range, root)) {
+      setContextMenu(null);
+      return;
+    }
+    setContextMenu(null);
+    window.getSelection()?.removeAllRanges();
+    updateDirty();
+    root.focus({ preventScroll: true });
+  }
+
+  function removeHighlight() {
+    const root = editor.current;
+    if (!root || !contextMenu || !removeHighlightRange(contextMenu.range, root)) {
+      setContextMenu(null);
+      return;
+    }
+    setContextMenu(null);
+    window.getSelection()?.removeAllRanges();
+    updateDirty();
+    root.focus({ preventScroll: true });
+  }
+
+  return <>
+    <article
+      ref={editor}
+      className="markdown editable-markdown rich-markdown-editor"
+      contentEditable={!disabled}
+      suppressContentEditableWarning
+      role="textbox"
+      aria-label="笔记正文"
+      aria-multiline="true"
+      spellCheck
+      onInput={input}
+      onKeyDown={keyDown}
+      onPaste={paste}
+      onClick={click}
+      onContextMenu={openContextMenu}
+      onFocus={() => onFocusChange(true)}
+      onBlur={() => { flush(); onFocusChange(false); }}
+    />
+    {contextMenu && createPortal(<div className="note-selection-menu" role="menu" style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={event => event.stopPropagation()}>
+      {contextMenu.canHighlight && <button type="button" role="menuitem" onClick={applyHighlight}><Highlighter size={15}/>高亮</button>}
+      {contextMenu.canRemoveHighlight && <button type="button" role="menuitem" onClick={removeHighlight}><Eraser size={15}/>取消高亮</button>}
+    </div>, document.body)}
+  </>;
 });
 
 export default RichMarkdownEditor;
