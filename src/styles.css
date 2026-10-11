@@ -208,6 +208,10 @@
 .library.library-flat{padding:35px 38px 48px;background-position:center -315px}
 .library-flat .library-heading{min-height:180px;margin-bottom:4px}
 .library-flat .library-heading h1{margin-top:15px}
+.folder-heading-title{display:flex;align-items:center;gap:9px}
+.folder-heading-title h1{min-width:0}
+.folder-heading-rename{width:29px;height:29px;display:grid;place-items:center;margin-top:15px;border-radius:50%;color:#789084;transition:background .15s,color .15s}
+.folder-heading-rename:hover,.folder-heading-rename:focus-visible{background:#e4eee8;color:#24573f}
 .library-flat .library-heading .library-actions{margin-right:0}
 .library-back{display:flex;align-items:center;gap:6px;margin-bottom:14px;color:#3f6251;font-size:11px;font-weight:650}
 .library-back:hover{color:#173f32}
@@ -231,13 +235,17 @@
 .folder-card,.note-card.note-card-flat,.new-note-tile.new-note-tile-flat{min-height:205px;border:1px solid #dce4df;border-radius:9px;background:#fffdfa9e;box-shadow:0 3px 14px #24423105;transition:border-color .18s,box-shadow .18s,transform .18s}
 .folder-card:hover,.note-card.note-card-flat:hover,.new-note-tile.new-note-tile-flat:hover{border-color:#9eb3a7;box-shadow:0 8px 22px #2442310d;transform:translateY(-2px)}
 .folder-card{position:relative;padding:27px 23px 19px;display:flex;flex-direction:column;text-align:left;overflow:hidden}
+.folder-card-open{position:absolute;inset:0;z-index:1;width:100%;height:100%;border-radius:9px}
+.folder-card-rename{position:absolute;right:13px;top:13px;z-index:3;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#f8fbf8d9;color:#71887b;opacity:.72;transition:opacity .15s,background .15s,color .15s}
+.folder-card:hover .folder-card-rename,.folder-card-rename:focus-visible{opacity:1}
+.folder-card-rename:hover,.folder-card-rename:focus-visible{background:#dfece4;color:#24573f}
 .card-grip{position:absolute;left:10px;top:24px;display:flex;color:#a4aea8;cursor:grab}
 .folder-card-icon{height:43px;display:flex;align-items:center;color:#17563d;margin-left:18px}
 .folder-card>strong{margin:9px 0 0 18px;font:16px/1.4 var(--serif);font-weight:500;color:#173f31;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .folder-card>p{height:36px;margin:7px 0 0 18px;font-size:10px;line-height:1.8;color:#8a958f;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .folder-card>footer{margin-top:auto;padding:13px 0 0 18px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #edf0ed;color:#8c9b92;font-size:9px}
 .folder-card.drop-target{border-color:#3e7c5d;background:#eaf3ed;box-shadow:0 0 0 3px #56866b20;transform:translateY(-3px)}
-.folder-card>em{position:absolute;inset:0;display:grid;place-items:center;background:#e5f0e9e8;color:#24563e;font-size:11px;font-style:normal;font-weight:600;letter-spacing:.5px}
+.folder-card>em{position:absolute;inset:0;z-index:4;display:grid;place-items:center;background:#e5f0e9e8;color:#24563e;font-size:11px;font-style:normal;font-weight:600;letter-spacing:.5px;pointer-events:none}
 .note-card.note-card-flat{min-height:205px;padding:17px 19px 16px;display:flex;flex-direction:column}
 .note-card-flat>header{height:37px;display:flex;align-items:center;gap:8px;position:relative}
 .note-card-flat>header .card-grip{position:static;margin-left:-12px}
@@ -1111,6 +1119,9 @@ body{background:#edf1ed;color:#31493f}
 :root[data-theme="dark"] .content-tabs>button.active{background:#1c523f;color:#b8f6c8}
 :root[data-theme="dark"] .folder-current-label{color:#b9ebc8}
 :root[data-theme="dark"] .folder-current-label b{color:#799087}
+:root[data-theme="dark"] .folder-heading-rename{color:#82a092}
+:root[data-theme="dark"] .folder-heading-rename:hover,
+:root[data-theme="dark"] .folder-heading-rename:focus-visible{background:#173d33;color:#a9edbd}
 :root[data-theme="dark"] .search-field,
 :root[data-theme="dark"] .library-flat .search-field,
 :root[data-theme="dark"] .sort-select select,
@@ -1123,6 +1134,9 @@ body{background:#edf1ed;color:#31493f}
 :root[data-theme="dark"] .note-card.note-card-flat,
 :root[data-theme="dark"] .new-note-tile.new-note-tile-flat{border-color:#315149;background:rgba(9,30,29,.87);box-shadow:0 7px 24px rgba(0,0,0,.18);backdrop-filter:blur(8px)}
 :root[data-theme="dark"] .folder-card{background:linear-gradient(180deg,rgba(18,56,48,.93) 0,rgba(11,38,35,.94) 55px,rgba(8,29,29,.9) 125px)}
+:root[data-theme="dark"] .folder-card-rename{background:rgba(12,42,37,.9);color:#86aa99}
+:root[data-theme="dark"] .folder-card-rename:hover,
+:root[data-theme="dark"] .folder-card-rename:focus-visible{background:#205443;color:#c1f7ce}
 :root[data-theme="dark"] .folder-card:hover,
 :root[data-theme="dark"] .note-card.note-card-flat:hover,
 :root[data-theme="dark"] .new-note-tile.new-note-tile-flat:hover{border-color:#5dba87;box-shadow:0 10px 28px rgba(0,0,0,.28),0 0 18px rgba(76,219,131,.07)}

@@ -341,6 +341,11 @@ def create_folder(value: FolderInput):
     return store.create_folder(value.name)
 
 
+@app.put('/api/folders/{folder_id}')
+def rename_folder(folder_id: str, value: FolderInput):
+    return store.rename_folder(folder_id, value.name)
+
+
 @app.post('/api/notes')
 def create_note(value: NoteInput):
     title = value.title.strip() or '未命名笔记'

@@ -221,6 +221,40 @@ def test_create_folder_and_move_note_moves_the_markdown_file(client):
     assert not target.exists()
 
 
+def test_rename_folder_updates_directory_database_and_note_paths(client):
+    note = client.post('/api/notes', json={'title': '目录笔记', 'content': '# 目录笔记\n正文'}).json()
+    folder = client.post('/api/folders', json={'name': '旧名称'}).json()
+    moved = client.put(f'/api/notes/{note["id"]}/folder', json={'folder_id': folder['id']}).json()
+    old_directory = Path(moved['note_file']).parent
+    (old_directory / '用户附件.txt').write_text('保留')
+
+    response = client.put(f'/api/folders/{folder["id"]}', json={'name': '  新名称  '})
+    assert response.status_code == 200
+    assert response.json()['name'] == '新名称' and response.json()['note_count'] == 1
+    assert not old_directory.exists()
+    new_directory = old_directory.parent / '新名称'
+    assert (new_directory / '用户附件.txt').read_text() == '保留'
+
+    updated = next(item for item in client.get('/api/notes').json() if item['id'] == note['id'])
+    assert updated['folder_name'] == '新名称'
+    assert Path(updated['note_file']).parent == new_directory
+    assert Path(updated['note_file']).read_text() == '# 目录笔记\n正文'
+
+
+def test_rename_folder_rejects_duplicate_invalid_and_missing_directories(client):
+    first = client.post('/api/folders', json={'name': '第一组'}).json()
+    second = client.post('/api/folders', json={'name': '第二组'}).json()
+    assert client.put(f'/api/folders/{first["id"]}', json={'name': '第二组'}).status_code == 400
+    assert client.put(f'/api/folders/{first["id"]}', json={'name': '../越界'}).status_code == 422
+
+    directory = store.DATA / 'notes' / '第一组'
+    directory.rmdir()
+    response = client.put(f'/api/folders/{first["id"]}', json={'name': '新名'})
+    assert response.status_code == 400
+    names = {folder['id']: folder['name'] for folder in client.get('/api/folders').json()}
+    assert names == {first['id']: '第一组', second['id']: '第二组'}
+
+
 def test_folder_move_never_overwrites_files_or_external_edits(client):
     note = client.post('/api/notes', json={'title': '同名', 'content': '应用正文'}).json()
     folder = client.post('/api/folders', json={'name': '项目'}).json()

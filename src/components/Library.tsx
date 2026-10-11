@@ -1,7 +1,7 @@
 import { type DragEvent, type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, ArrowUpRight, BookOpen, FileText, Folder as FolderIcon, FolderPlus,
-  Grid2X2, GripVertical, List, Plus, Search, Sparkles, Trash2, Upload, X,
+  Grid2X2, GripVertical, List, Pencil, Plus, Search, Sparkles, Trash2, Upload, X,
 } from 'lucide-react';
 import { api, post, type Folder, type Note } from '../api';
 
@@ -19,7 +19,8 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
   const [layout, setLayout] = useState<'grid' | 'list'>('grid');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const [folderDialog, setFolderDialog] = useState(false);
+  const [folderDialog, setFolderDialog] = useState<'create' | 'rename' | null>(null);
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [folderName, setFolderName] = useState('');
   const [draggingNote, setDraggingNote] = useState('');
   const [dropTarget, setDropTarget] = useState('');
@@ -31,7 +32,7 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
         event.preventDefault();
         searchRef.current?.focus();
       }
-      if (event.key === 'Escape') setFolderDialog(false);
+      if (event.key === 'Escape') setFolderDialog(null);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -52,16 +53,32 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
     onOpen(note.id, true);
   });
 
-  const createFolder = (event: FormEvent) => {
+  const openCreateFolder = () => {
+    setEditingFolder(null);
+    setFolderName('');
+    setFolderDialog('create');
+  };
+
+  const openRenameFolder = (folder: Folder) => {
+    setEditingFolder(folder);
+    setFolderName(folder.name);
+    setFolderDialog('rename');
+  };
+
+  const saveFolder = (event: FormEvent) => {
     event.preventDefault();
     const name = folderName.trim();
     if (!name) return;
-    void work('folder-create', async () => {
-      const folder = await post<Folder>('/folders', { name });
-      setFolderDialog(false);
+    const renaming = folderDialog === 'rename' && editingFolder;
+    void work(renaming ? 'folder-rename' : 'folder-create', async () => {
+      const folder = renaming
+        ? await api<Folder>(`/folders/${editingFolder.id}`, { method: 'PUT', body: JSON.stringify({ name }) })
+        : await post<Folder>('/folders', { name });
+      setFolderDialog(null);
+      setEditingFolder(null);
       setFolderName('');
       await onChanged();
-      notify(`已新建文件夹「${folder.name}」`);
+      notify(renaming ? `文件夹已重命名为「${folder.name}」` : `已新建文件夹「${folder.name}」`);
     });
   };
 
@@ -91,10 +108,10 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
   };
 
   const folderDropProps = (folder: Folder) => ({
-    onDragEnter: (event: DragEvent<HTMLButtonElement>) => { event.preventDefault(); if (draggingNote) setDropTarget(folder.id); },
-    onDragOver: (event: DragEvent<HTMLButtonElement>) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; },
-    onDragLeave: (event: DragEvent<HTMLButtonElement>) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTarget(''); },
-    onDrop: (event: DragEvent<HTMLButtonElement>) => {
+    onDragEnter: (event: DragEvent<HTMLElement>) => { event.preventDefault(); if (draggingNote) setDropTarget(folder.id); },
+    onDragOver: (event: DragEvent<HTMLElement>) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; },
+    onDragLeave: (event: DragEvent<HTMLElement>) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTarget(''); },
+    onDrop: (event: DragEvent<HTMLElement>) => {
       event.preventDefault();
       const noteId = event.dataTransfer.getData('text/plain') || draggingNote;
       const note = notes.find(item => item.id === noteId);
@@ -134,11 +151,11 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
         <div>
           {currentFolder && <button className="library-back" onClick={() => onFolderChange(null)}><ArrowLeft size={15}/>{filter === 'folders' ? '返回文件夹' : '返回全部'}</button>}
           <span className="section-kicker">理解，记录，慢慢连接</span>
-          <h1>{currentFolder?.name || '我的笔记'}</h1>
+          <div className="folder-heading-title"><h1>{currentFolder?.name || '我的笔记'}</h1>{currentFolder && <button className="folder-heading-rename" title="修改文件夹名称" aria-label={`修改文件夹「${currentFolder.name}」的名称`} onClick={() => openRenameFolder(currentFolder)}><Pencil size={14}/></button>}</div>
           <p>{currentFolder ? `${currentFolder.note_count} 篇笔记 · 新建与导入的内容会直接保存到这里。` : `${contentCount} 项内容 · 拖动笔记卡片到文件夹，让知识各归其位。`}</p>
         </div>
         <div className="library-actions">
-          <button className="button secondary" disabled={!!busy} onClick={() => setFolderDialog(true)}><FolderPlus size={16}/>新建文件夹</button>
+          <button className="button secondary" disabled={!!busy} onClick={openCreateFolder}><FolderPlus size={16}/>新建文件夹</button>
           <button className="button secondary" disabled={!!busy} onClick={create}><Plus size={16}/>新建笔记</button>
           <label className="button secondary import-markdown"><Upload size={16}/>导入笔记<input type="file" accept=".md,text/markdown" disabled={!!busy} aria-label="导入笔记" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; importNote(file); }}/></label>
           <button className="button primary" onClick={onGenerate}><Sparkles size={16}/>AI 生成</button>
@@ -166,14 +183,16 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
         {folderCards.map(folder => {
           const children = notes.filter(note => note.folder_id === folder.id);
           const description = children.length ? children.slice(0, 3).map(note => note.title).join('、') : '把相关笔记拖到这里';
-          return <button key={folder.id} {...folderDropProps(folder)} className={`folder-card ${dropTarget === folder.id ? 'drop-target' : ''}`} onClick={() => onFolderChange(folder.id)}>
+          return <article key={folder.id} {...folderDropProps(folder)} className={`folder-card ${dropTarget === folder.id ? 'drop-target' : ''}`}>
+            <button className="folder-card-open" aria-label={`打开文件夹「${folder.name}」`} onClick={() => onFolderChange(folder.id)}/>
+            <button className="folder-card-rename" title="修改文件夹名称" aria-label={`修改文件夹「${folder.name}」的名称`} onClick={() => openRenameFolder(folder)}><Pencil size={14}/></button>
             <span className="card-grip"><GripVertical size={15}/></span>
             <span className="folder-card-icon"><FolderIcon size={31}/></span>
             <strong>{folder.name}</strong>
             <p>{description}</p>
             <footer><span>{folder.note_count} 项内容</span><ArrowUpRight size={16}/></footer>
             {dropTarget === folder.id && <em>松开以移入</em>}
-          </button>;
+          </article>;
         })}
         {visibleNotes.map(note => <article key={note.id} className={`note-card note-card-flat ${draggingNote === note.id ? 'is-dragging' : ''}`} role="button" tabIndex={0} draggable={!busy} onDragStart={event => { setDraggingNote(note.id); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', note.id); }} onDragEnd={() => { setDraggingNote(''); setDropTarget(''); }} onClick={() => onOpen(note.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpen(note.id); } }}>
           <header>
@@ -189,9 +208,9 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
           <footer><span>{new Date(note.updated_at).toLocaleDateString('zh-CN')} 更新</span><ArrowUpRight size={16}/></footer>
         </article>)}
         {(filter !== 'folders' || selectedFolder) && <button className="new-note-tile new-note-tile-flat" onClick={onGenerate} disabled={!!busy}><span><Sparkles size={19}/></span><strong>AI 新建笔记</strong><p>从字幕、视频或已有笔记，<br/>交给 AI 整理。</p></button>}
-      </div> : <div className="library-empty library-empty-flat"><BookOpen size={42} strokeWidth={1}/><h2>{search ? '没有找到匹配的内容' : filter === 'folders' ? '新建一个文件夹，让知识各归其位。' : currentFolder ? `「${currentFolder.name}」还是空的` : '从一份素材，或一页空白开始。'}</h2><p>{currentFolder ? '你可以在这里新建笔记，或从“全部内容”拖动笔记到这个文件夹。' : 'AI 生成与手写笔记，都以 Markdown 文件保存在本地仓库。'}</p><div className="library-actions"><button className="button secondary" onClick={filter === 'folders' ? () => setFolderDialog(true) : create}>{filter === 'folders' ? <FolderPlus size={16}/> : <Plus size={16}/>} {filter === 'folders' ? '新建文件夹' : '写一篇笔记'}</button>{filter !== 'folders' && <button className="button primary" onClick={onGenerate}><Sparkles size={16}/>让 AI 帮我整理</button>}</div></div>}
+      </div> : <div className="library-empty library-empty-flat"><BookOpen size={42} strokeWidth={1}/><h2>{search ? '没有找到匹配的内容' : filter === 'folders' ? '新建一个文件夹，让知识各归其位。' : currentFolder ? `「${currentFolder.name}」还是空的` : '从一份素材，或一页空白开始。'}</h2><p>{currentFolder ? '你可以在这里新建笔记，或从“全部内容”拖动笔记到这个文件夹。' : 'AI 生成与手写笔记，都以 Markdown 文件保存在本地仓库。'}</p><div className="library-actions"><button className="button secondary" onClick={filter === 'folders' ? openCreateFolder : create}>{filter === 'folders' ? <FolderPlus size={16}/> : <Plus size={16}/>} {filter === 'folders' ? '新建文件夹' : '写一篇笔记'}</button>{filter !== 'folders' && <button className="button primary" onClick={onGenerate}><Sparkles size={16}/>让 AI 帮我整理</button>}</div></div>}
     </div>
 
-    {folderDialog && <div className="folder-dialog-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setFolderDialog(false); }}><form className="folder-dialog" role="dialog" aria-modal="true" aria-labelledby="folder-dialog-title" onSubmit={createFolder}><button type="button" className="icon-button folder-dialog-close" aria-label="关闭" onClick={() => setFolderDialog(false)}><X size={17}/></button><span className="folder-dialog-icon"><FolderPlus size={23}/></span><h2 id="folder-dialog-title">新建文件夹</h2><p>文件夹会同步创建在你的本地笔记仓库中。</p><label>文件夹名称<input autoFocus maxLength={60} placeholder="例如：产品设计" value={folderName} onChange={event => setFolderName(event.target.value)}/></label><div><button type="button" className="button secondary" onClick={() => setFolderDialog(false)}>取消</button><button type="submit" className="button primary" disabled={!folderName.trim() || busy === 'folder-create'}>{busy === 'folder-create' ? '正在创建…' : '创建文件夹'}</button></div></form></div>}
+    {folderDialog && <div className="folder-dialog-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setFolderDialog(null); }}><form className="folder-dialog" role="dialog" aria-modal="true" aria-labelledby="folder-dialog-title" onSubmit={saveFolder}><button type="button" className="icon-button folder-dialog-close" aria-label="关闭" onClick={() => setFolderDialog(null)}><X size={17}/></button><span className="folder-dialog-icon">{folderDialog === 'rename' ? <Pencil size={22}/> : <FolderPlus size={23}/>}</span><h2 id="folder-dialog-title">{folderDialog === 'rename' ? '修改文件夹名称' : '新建文件夹'}</h2><p>{folderDialog === 'rename' ? '名称会与本地笔记仓库中的文件夹同步修改。' : '文件夹会同步创建在你的本地笔记仓库中。'}</p><label>文件夹名称<input autoFocus maxLength={60} placeholder="例如：产品设计" value={folderName} onChange={event => setFolderName(event.target.value)}/></label><div><button type="button" className="button secondary" onClick={() => setFolderDialog(null)}>取消</button><button type="submit" className="button primary" disabled={!folderName.trim() || busy === 'folder-create' || busy === 'folder-rename'}>{busy === 'folder-create' ? '正在创建…' : busy === 'folder-rename' ? '正在保存…' : folderDialog === 'rename' ? '保存名称' : '创建文件夹'}</button></div></form></div>}
   </>;
 }

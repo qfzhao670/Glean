@@ -212,6 +212,46 @@ def create_folder(name):
     return {'id': folder_id, 'name': name, 'created_at': timestamp, 'note_count': 0}
 
 
+def rename_folder(folder_id, name):
+    repository_path = settings(True)['repository_path']
+    renamed = None
+    try:
+        with db() as c:
+            folder = c.execute('SELECT * FROM folders WHERE id=?', (folder_id,)).fetchone()
+            if not folder:
+                raise ValueError('文件夹不存在')
+            if folder['name'] == name:
+                count = c.execute('SELECT COUNT(*) FROM notes WHERE folder_id=?', (folder_id,)).fetchone()[0]
+                return {**dict(folder), 'note_count': count}
+            if c.execute('SELECT 1 FROM folders WHERE name=? AND id<>?', (name, folder_id)).fetchone():
+                raise ValueError('已有同名文件夹，请换一个名称。')
+
+            root_path = repository.root(repository_path)
+            source = root_path / folder['name']
+            notes = c.execute('SELECT id,note_file FROM notes WHERE folder_id=?', (folder_id,)).fetchall()
+            relative_paths = []
+            for note in notes:
+                try:
+                    relative_paths.append((note['id'], Path(note['note_file']).relative_to(source)))
+                except ValueError as exc:
+                    raise ValueError('文件夹中的笔记路径异常，本次未重命名。') from exc
+
+            old_path, new_path = repository.rename_folder(repository_path, folder['name'], name)
+            renamed = (old_path, new_path)
+            c.execute('UPDATE folders SET name=? WHERE id=?', (name, folder_id))
+            for note_id, relative in relative_paths:
+                c.execute('UPDATE notes SET note_file=? WHERE id=?', (str(new_path / relative), note_id))
+            return {**dict(folder), 'name': name, 'note_count': len(notes)}
+    except Exception:
+        if renamed:
+            old_path, new_path = renamed
+            try:
+                new_path.rename(old_path)
+            except OSError as rollback_error:
+                raise ValueError('文件夹已重命名，但数据更新失败，请重启应用后检查笔记仓库。') from rollback_error
+        raise
+
+
 def move_note(note_id, folder_id=None):
     with db() as c:
         note = c.execute('SELECT * FROM notes WHERE id=?', (note_id,)).fetchone()

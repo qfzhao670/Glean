@@ -6,6 +6,7 @@ import re
 import errno
 import shutil
 import tempfile
+import uuid
 from pathlib import Path
 
 IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
@@ -47,6 +48,39 @@ def ensure_folder(folder, name, exclusive=False):
         raise
     except OSError as exc:
         raise ValueError('无法新建文件夹，请检查仓库权限和磁盘空间。') from exc
+
+
+def rename_folder(folder, current, name):
+    """Rename a managed first-level folder without merging or replacing data."""
+    folder = root(folder)
+    current, name = _folder_name(current), _folder_name(name)
+    source, target = folder / current, folder / name
+    if current == name:
+        return source, target
+    try:
+        if source.is_symlink() or not source.is_dir() or source.resolve().parent != folder:
+            raise ValueError('原文件夹不存在或位置无效，本次未重命名。')
+        # Case-only renames point at the same directory on case-insensitive file
+        # systems. Move through a private temporary name so Windows and macOS
+        # both preserve the requested spelling.
+        same_directory = target.exists() and target.samefile(source)
+        if (target.exists() or target.is_symlink()) and not same_directory:
+            raise ValueError('已有同名文件夹，请换一个名称。')
+        if same_directory:
+            temporary = folder / ('.glean-folder-' + uuid.uuid4().hex)
+            source.rename(temporary)
+            try:
+                temporary.rename(target)
+            except OSError:
+                temporary.rename(source)
+                raise
+        else:
+            source.rename(target)
+        return source, target
+    except ValueError:
+        raise
+    except OSError as exc:
+        raise ValueError('无法重命名文件夹，请检查仓库权限和磁盘空间。') from exc
 
 
 def move(folder, current, expected, destination=''):
