@@ -213,6 +213,7 @@ class NoteInput(BaseModel):
 
 class FolderInput(BaseModel):
     name: str = Field(min_length=1, max_length=60)
+    parent_id: str | None = Field(default=None, max_length=64)
     @field_validator('name')
     @classmethod
     def valid_name(cls, value):
@@ -225,6 +226,10 @@ class FolderInput(BaseModel):
 
 class MoveNoteInput(BaseModel):
     folder_id: str | None = Field(default=None, max_length=64)
+
+
+class MoveFolderInput(BaseModel):
+    parent_id: str | None = Field(default=None, max_length=64)
 
 
 class RepositoryInput(BaseModel):
@@ -331,19 +336,29 @@ def notes():
 
 @app.get('/api/folders')
 def folders():
-    return store.rows('''SELECT folders.id,folders.name,folders.created_at,COUNT(notes.id) AS note_count
-                       FROM folders LEFT JOIN notes ON notes.folder_id=folders.id
-                       GROUP BY folders.id ORDER BY folders.created_at,folders.name''')
+    return store.list_folders()
 
 
 @app.post('/api/folders')
 def create_folder(value: FolderInput):
-    return store.create_folder(value.name)
+    return store.create_folder(value.name, value.parent_id)
 
 
 @app.put('/api/folders/{folder_id}')
 def rename_folder(folder_id: str, value: FolderInput):
     return store.rename_folder(folder_id, value.name)
+
+
+@app.put('/api/folders/{folder_id}/parent')
+def move_folder(folder_id: str, value: MoveFolderInput):
+    store.move_folder(folder_id, value.parent_id)
+    return {'ok': True}
+
+
+@app.delete('/api/folders/{folder_id}')
+def delete_folder(folder_id: str, mode: Literal['delete', 'promote'] = 'delete'):
+    store.delete_folder(folder_id, mode)
+    return {'ok': True}
 
 
 @app.post('/api/notes')

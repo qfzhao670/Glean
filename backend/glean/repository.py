@@ -31,10 +31,27 @@ def root(path):
     return target.resolve()
 
 
-def ensure_folder(folder, name, exclusive=False):
-    """Return a safe first-level folder, optionally requiring it to be new."""
+def _directory(folder, relative='', must_exist=True):
+    """Resolve a managed directory without allowing escapes or symlinks."""
     folder = root(folder)
-    target = folder / _folder_name(name)
+    relative = Path(relative)
+    if relative.is_absolute() or '..' in relative.parts:
+        raise ValueError('文件夹位置无效。')
+    target = folder.joinpath(*relative.parts)
+    if target.is_symlink():
+        raise ValueError('文件夹位置无效。')
+    if must_exist:
+        if not target.is_dir() or not target.resolve().is_relative_to(folder):
+            raise ValueError('文件夹不存在或位置无效。')
+    elif not target.parent.resolve().is_relative_to(folder):
+        raise ValueError('文件夹位置无效。')
+    return folder, target
+
+
+def ensure_folder(folder, name, exclusive=False, parent=''):
+    """Return a safe managed folder below ``parent``, optionally requiring it to be new."""
+    folder, parent_path = _directory(folder, parent)
+    target = parent_path / _folder_name(name)
     try:
         if target.exists() or target.is_symlink():
             if exclusive:
@@ -51,14 +68,14 @@ def ensure_folder(folder, name, exclusive=False):
 
 
 def rename_folder(folder, current, name):
-    """Rename a managed first-level folder without merging or replacing data."""
-    folder = root(folder)
-    current, name = _folder_name(current), _folder_name(name)
-    source, target = folder / current, folder / name
-    if current == name:
+    """Rename a managed folder without merging or replacing data."""
+    folder, source = _directory(folder, current)
+    name = _folder_name(name)
+    target = source.parent / name
+    if source.name == name:
         return source, target
     try:
-        if source.is_symlink() or not source.is_dir() or source.resolve().parent != folder:
+        if source.is_symlink() or not source.is_dir() or not source.resolve().is_relative_to(folder):
             raise ValueError('原文件夹不存在或位置无效，本次未重命名。')
         # Case-only renames point at the same directory on case-insensitive file
         # systems. Move through a private temporary name so Windows and macOS
@@ -83,6 +100,24 @@ def rename_folder(folder, current, name):
         raise ValueError('无法重命名文件夹，请检查仓库权限和磁盘空间。') from exc
 
 
+def move_folder(folder, current, destination=''):
+    """Move a managed folder below another managed folder without merging."""
+    folder, source = _directory(folder, current)
+    _folder, target_parent = _directory(folder, destination)
+    target = target_parent / source.name
+    try:
+        if target == source:
+            return source, target
+        if target.exists() or target.is_symlink():
+            raise ValueError('目标位置已有同名文件夹。')
+        source.rename(target)
+        return source, target
+    except ValueError:
+        raise
+    except OSError as exc:
+        raise ValueError('无法移动文件夹，请检查仓库权限和磁盘空间。') from exc
+
+
 def move(folder, current, expected, destination=''):
     """Move a managed Markdown file without overwriting user files."""
     folder = root(folder)
@@ -92,7 +127,7 @@ def move(folder, current, expected, destination=''):
             raise ValueError('笔记文件已移出当前仓库，请检查保存位置。')
         if source.read_text(encoding='utf-8') != expected:
             raise ValueError('仓库文件已被其他程序修改，本次未移动。请先导入外部版本。')
-        target_folder = ensure_folder(folder, destination) if destination else folder
+        _folder, target_folder = _directory(folder, destination)
         if source.parent.resolve() == target_folder.resolve():
             return str(source)
         stem, suffix = source.stem, source.suffix
@@ -119,6 +154,84 @@ def move(folder, current, expected, destination=''):
         raise
     except (OSError, UnicodeError) as exc:
         raise ValueError('无法移动笔记，请检查文件夹权限和磁盘空间。') from exc
+
+
+def delete_folder_tree(folder, current, expected_files, managed_directories):
+    """Delete an explicitly selected managed folder and everything below it."""
+    folder, source = _directory(folder, current)
+    try:
+        # Database paths must still belong to the selected tree. Unknown files
+        # are intentionally allowed: the user chose “delete all contents”.
+        for path in expected_files:
+            if not Path(path).resolve().is_relative_to(source.resolve()):
+                raise ValueError('文件夹中的笔记路径异常，本次未删除。')
+        for path in managed_directories:
+            if not Path(path).resolve().is_relative_to(source.resolve()):
+                raise ValueError('文件夹层级异常，本次未删除。')
+        shutil.rmtree(source)
+    except ValueError:
+        raise
+    except (OSError, UnicodeError) as exc:
+        raise ValueError(f'无法从笔记仓库 {folder} 删除文件夹，请检查文件夹权限。') from exc
+
+
+def promote_folder(folder, current, destination, expected_files, child_names):
+    """Remove a folder while moving every immediate item to its parent.
+
+    Managed child folders retain their names. Other files and directories are
+    preserved too, with a numeric suffix when an item at the destination exists.
+    Returns a mapping from each old immediate path to its new path.
+    """
+    folder, source = _directory(folder, current)
+    _folder, target_parent = _directory(folder, destination)
+    expected = {Path(path).resolve(): content for path, content in expected_files.items()}
+    children = set(child_names)
+    moved = []
+    reserved = {path.name for path in target_parent.iterdir() if path != source}
+
+    def available_name(path):
+        if path.name not in reserved:
+            reserved.add(path.name)
+            return path.name
+        if path.name in children:
+            raise ValueError(f'同级目录已有名为「{path.name}」的文件夹，本次未删除。')
+        stem, suffix = path.stem, path.suffix
+        for index in range(1, 10000):
+            candidate = f'{stem} ({index}){suffix}'
+            if candidate not in reserved:
+                reserved.add(candidate)
+                return candidate
+        raise ValueError('同级目录中的同名内容过多，请先整理后再删除。')
+
+    try:
+        entries = list(source.iterdir())
+        for entry in entries:
+            if entry.is_symlink():
+                raise ValueError('文件夹中存在符号链接，请先移出后再删除。')
+        for path, content in expected.items():
+            if path.parent != source.resolve() or not path.is_file():
+                raise ValueError('文件夹中的笔记路径异常，本次未删除。')
+            if path.read_text(encoding='utf-8') != content:
+                raise ValueError('仓库文件已被外部程序修改，本次未移动。请先导入外部版本。')
+        plans = [(entry, target_parent / available_name(entry)) for entry in entries]
+        for old_path, new_path in plans:
+            old_path.rename(new_path)
+            moved.append((old_path, new_path))
+        source.rmdir()
+        return {str(old): str(new) for old, new in moved}
+    except ValueError:
+        raise
+    except OSError as exc:
+        raise ValueError('无法释放文件夹内容，请检查文件夹权限和磁盘空间。') from exc
+    finally:
+        # Best-effort rollback if an operation failed before the source was removed.
+        if source.exists() and moved:
+            for old_path, new_path in reversed(moved):
+                try:
+                    if new_path.exists() and not old_path.exists():
+                        new_path.rename(old_path)
+                except OSError:
+                    pass
 
 
 def write(folder, title, content, current='', expected=None):

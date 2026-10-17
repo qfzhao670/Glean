@@ -72,12 +72,31 @@ def init():
           note_id TEXT, target TEXT, created_at TEXT,
           PRIMARY KEY (note_id, target));
         CREATE TABLE IF NOT EXISTS folders (
-          id TEXT PRIMARY KEY, name TEXT UNIQUE, created_at TEXT);
+          id TEXT PRIMARY KEY, name TEXT, created_at TEXT, parent_id TEXT DEFAULT NULL);
         ''')
         if 'note_file' not in [r['name'] for r in c.execute('PRAGMA table_info(notes)')]:
             c.execute("ALTER TABLE notes ADD COLUMN note_file TEXT DEFAULT ''")
         if 'folder_id' not in [r['name'] for r in c.execute('PRAGMA table_info(notes)')]:
             c.execute("ALTER TABLE notes ADD COLUMN folder_id TEXT DEFAULT NULL")
+        if 'parent_id' not in [r['name'] for r in c.execute('PRAGMA table_info(folders)')]:
+            c.execute("ALTER TABLE folders ADD COLUMN parent_id TEXT DEFAULT NULL")
+        # The original one-level model made names globally unique. Nested
+        # folders only need uniqueness among siblings, so rebuild old tables
+        # once to remove the inline UNIQUE constraint.
+        folder_sql = c.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='folders'"
+        ).fetchone()[0]
+        if re.search(r'name\s+TEXT\s+UNIQUE', folder_sql, re.I):
+            c.executescript('''
+                ALTER TABLE folders RENAME TO folders_legacy;
+                CREATE TABLE folders (
+                  id TEXT PRIMARY KEY, name TEXT, created_at TEXT, parent_id TEXT DEFAULT NULL);
+                INSERT INTO folders (id,name,created_at,parent_id)
+                  SELECT id,name,created_at,parent_id FROM folders_legacy;
+                DROP TABLE folders_legacy;
+            ''')
+        c.execute('''CREATE UNIQUE INDEX IF NOT EXISTS folders_parent_name_unique
+                     ON folders(COALESCE(parent_id, ''), name)''')
         # Historical counters are intentionally independent of the live notes
         # table. Upgrade existing libraries from their current contents once;
         # subsequent deletes keep both creation events and discovered links.
@@ -154,11 +173,18 @@ def materialize_notes(folder=None, move=False):
 
 
 def _materialize(c, folder, move=False):
-    query = '''SELECT notes.*, folders.name AS folder_name FROM notes
-               LEFT JOIN folders ON folders.id=notes.folder_id'''
+    # Recreate the complete hierarchy, including empty folders, when upgrading
+    # or switching repositories.
+    for row in c.execute('SELECT id FROM folders').fetchall():
+        parent = Path()
+        for name in _folder_relative(c, row['id']).parts:
+            repository.ensure_folder(folder, name, parent=parent)
+            parent /= name
+    query = 'SELECT notes.* FROM notes'
     for row in c.execute(query).fetchall():
         if move or not row['note_file']:
-            destination = repository.ensure_folder(folder, row['folder_name']) if row['folder_name'] else folder
+            relative = _folder_relative(c, row['folder_id']) if row['folder_id'] else Path()
+            destination = repository.root(folder) / relative
             path = repository.write(str(destination), row['title'], row['content'])
             c.execute('UPDATE notes SET note_file=? WHERE id=?', (path, row['id']))
 
@@ -171,6 +197,58 @@ def rows(query, params=()):
 def one(query, params=()):
     result = rows(query, params)
     return result[0] if result else None
+
+
+def _folder_chain(c, folder_id):
+    """Return a folder's rows from the repository root to the folder."""
+    chain, seen = [], set()
+    current = folder_id
+    while current:
+        if current in seen:
+            raise ValueError('文件夹层级异常，请重启应用后检查笔记仓库。')
+        seen.add(current)
+        folder = c.execute('SELECT * FROM folders WHERE id=?', (current,)).fetchone()
+        if not folder:
+            raise ValueError('文件夹不存在')
+        chain.append(folder)
+        current = folder['parent_id']
+    return list(reversed(chain))
+
+
+def _folder_relative(c, folder_id):
+    return Path(*(folder['name'] for folder in _folder_chain(c, folder_id)))
+
+
+def _descendant_folder_ids(c, folder_id, include_self=True):
+    children = {}
+    for row in c.execute('SELECT id,parent_id FROM folders').fetchall():
+        children.setdefault(row['parent_id'], []).append(row['id'])
+    result, pending = [], [folder_id]
+    while pending:
+        current = pending.pop()
+        result.append(current)
+        pending.extend(children.get(current, ()))
+    return result if include_self else result[1:]
+
+
+def list_folders():
+    with db() as c:
+        values = [dict(row) for row in c.execute('''
+            SELECT folders.id,folders.name,folders.parent_id,folders.created_at,
+                   COUNT(notes.id) AS note_count
+            FROM folders LEFT JOIN notes ON notes.folder_id=folders.id
+            GROUP BY folders.id ORDER BY folders.created_at,folders.name
+        ''').fetchall()]
+        child_counts = {}
+        for folder in values:
+            child_counts[folder['parent_id']] = child_counts.get(folder['parent_id'], 0) + 1
+        note_counts = {folder['id']: folder['note_count'] for folder in values}
+        for folder in values:
+            descendants = _descendant_folder_ids(c, folder['id'])
+            folder['child_count'] = child_counts.get(folder['id'], 0)
+            folder['descendant_note_count'] = sum(note_counts.get(folder_id, 0) for folder_id in descendants)
+            folder['path'] = str(_folder_relative(c, folder['id']))
+        return values
 
 
 def links(content):
@@ -202,14 +280,18 @@ def create_note(title, content, transcript, source, kind, duration=0):
     return note_id
 
 
-def create_folder(name):
+def create_folder(name, parent_id=None):
     folder_id, timestamp = uid(), now()
     with db() as c:
-        if c.execute('SELECT 1 FROM folders WHERE name=?', (name,)).fetchone():
+        if c.execute('SELECT 1 FROM folders WHERE name=? AND parent_id IS ?', (name, parent_id)).fetchone():
             raise ValueError('已有同名文件夹，请换一个名称。')
-        repository.ensure_folder(settings(True)['repository_path'], name, exclusive=True)
-        c.execute('INSERT INTO folders VALUES (?,?,?)', (folder_id, name, timestamp))
-    return {'id': folder_id, 'name': name, 'created_at': timestamp, 'note_count': 0}
+        parent = _folder_relative(c, parent_id) if parent_id else Path()
+        repository.ensure_folder(settings(True)['repository_path'], name, exclusive=True, parent=parent)
+        c.execute('INSERT INTO folders (id,name,created_at,parent_id) VALUES (?,?,?,?)',
+                  (folder_id, name, timestamp, parent_id))
+    return {'id': folder_id, 'name': name, 'parent_id': parent_id, 'created_at': timestamp,
+            'note_count': 0, 'child_count': 0, 'descendant_note_count': 0,
+            'path': str(parent / name)}
 
 
 def rename_folder(folder_id, name):
@@ -222,13 +304,19 @@ def rename_folder(folder_id, name):
                 raise ValueError('文件夹不存在')
             if folder['name'] == name:
                 count = c.execute('SELECT COUNT(*) FROM notes WHERE folder_id=?', (folder_id,)).fetchone()[0]
-                return {**dict(folder), 'note_count': count}
-            if c.execute('SELECT 1 FROM folders WHERE name=? AND id<>?', (name, folder_id)).fetchone():
+                return {**dict(folder), 'note_count': count, 'path': str(_folder_relative(c, folder_id))}
+            if c.execute('SELECT 1 FROM folders WHERE name=? AND parent_id IS ? AND id<>?',
+                         (name, folder['parent_id'], folder_id)).fetchone():
                 raise ValueError('已有同名文件夹，请换一个名称。')
 
+            old_relative = _folder_relative(c, folder_id)
             root_path = repository.root(repository_path)
-            source = root_path / folder['name']
-            notes = c.execute('SELECT id,note_file FROM notes WHERE folder_id=?', (folder_id,)).fetchall()
+            source = root_path / old_relative
+            descendants = _descendant_folder_ids(c, folder_id)
+            placeholders = ','.join('?' for _ in descendants)
+            notes = c.execute(
+                f'SELECT id,note_file FROM notes WHERE folder_id IN ({placeholders})', descendants,
+            ).fetchall()
             relative_paths = []
             for note in notes:
                 try:
@@ -236,12 +324,14 @@ def rename_folder(folder_id, name):
                 except ValueError as exc:
                     raise ValueError('文件夹中的笔记路径异常，本次未重命名。') from exc
 
-            old_path, new_path = repository.rename_folder(repository_path, folder['name'], name)
+            old_path, new_path = repository.rename_folder(repository_path, old_relative, name)
             renamed = (old_path, new_path)
             c.execute('UPDATE folders SET name=? WHERE id=?', (name, folder_id))
             for note_id, relative in relative_paths:
                 c.execute('UPDATE notes SET note_file=? WHERE id=?', (str(new_path / relative), note_id))
-            return {**dict(folder), 'name': name, 'note_count': len(notes)}
+            direct_count = c.execute('SELECT COUNT(*) FROM notes WHERE folder_id=?', (folder_id,)).fetchone()[0]
+            return {**dict(folder), 'name': name, 'note_count': direct_count,
+                    'path': str(old_relative.parent / name)}
     except Exception:
         if renamed:
             old_path, new_path = renamed
@@ -252,21 +342,122 @@ def rename_folder(folder_id, name):
         raise
 
 
+def move_folder(folder_id, parent_id=None):
+    repository_path = settings(True)['repository_path']
+    moved = None
+    try:
+        with db() as c:
+            folder = c.execute('SELECT * FROM folders WHERE id=?', (folder_id,)).fetchone()
+            if not folder:
+                raise ValueError('文件夹不存在')
+            if folder['parent_id'] == parent_id:
+                return
+            descendants = _descendant_folder_ids(c, folder_id)
+            if parent_id == folder_id or parent_id in descendants:
+                raise ValueError('文件夹不能移入自身或它的子文件夹。')
+            if parent_id:
+                _folder_chain(c, parent_id)
+            if c.execute('SELECT 1 FROM folders WHERE name=? AND parent_id IS ? AND id<>?',
+                         (folder['name'], parent_id, folder_id)).fetchone():
+                raise ValueError('目标位置已有同名文件夹。')
+
+            old_relative = _folder_relative(c, folder_id)
+            destination = _folder_relative(c, parent_id) if parent_id else Path()
+            root_path = repository.root(repository_path)
+            source = root_path / old_relative
+            placeholders = ','.join('?' for _ in descendants)
+            notes = c.execute(
+                f'SELECT id,note_file FROM notes WHERE folder_id IN ({placeholders})', descendants,
+            ).fetchall()
+            relative_paths = []
+            for note in notes:
+                try:
+                    relative_paths.append((note['id'], Path(note['note_file']).relative_to(source)))
+                except ValueError as exc:
+                    raise ValueError('文件夹中的笔记路径异常，本次未移动。') from exc
+
+            old_path, new_path = repository.move_folder(repository_path, old_relative, destination)
+            moved = (old_path, new_path)
+            c.execute('UPDATE folders SET parent_id=? WHERE id=?', (parent_id, folder_id))
+            for note_id, relative in relative_paths:
+                c.execute('UPDATE notes SET note_file=? WHERE id=?', (str(new_path / relative), note_id))
+    except Exception:
+        if moved:
+            old_path, new_path = moved
+            try:
+                new_path.rename(old_path)
+            except OSError as rollback_error:
+                raise ValueError('文件夹已移动，但数据更新失败，请重启应用后检查笔记仓库。') from rollback_error
+        raise
+
+
+def delete_folder(folder_id, mode='delete'):
+    repository_path = settings(True)['repository_path']
+    with db() as c:
+        folder = c.execute('SELECT * FROM folders WHERE id=?', (folder_id,)).fetchone()
+        if not folder:
+            raise ValueError('文件夹不存在')
+        relative = _folder_relative(c, folder_id)
+        descendants = _descendant_folder_ids(c, folder_id)
+        placeholders = ','.join('?' for _ in descendants)
+        notes = c.execute(
+            f'SELECT id,folder_id,note_file,content FROM notes WHERE folder_id IN ({placeholders})', descendants,
+        ).fetchall()
+
+        if mode == 'promote':
+            parent_id = folder['parent_id']
+            parent_relative = relative.parent
+            direct_notes = [note for note in notes if note['folder_id'] == folder_id]
+            children = c.execute('SELECT id,name FROM folders WHERE parent_id=?', (folder_id,)).fetchall()
+            mapping = repository.promote_folder(
+                repository_path, relative, parent_relative,
+                {note['note_file']: note['content'] for note in direct_notes},
+                [child['name'] for child in children],
+            )
+            root_path = repository.root(repository_path)
+            old_root = root_path / relative
+            for note in notes:
+                old_note = Path(note['note_file'])
+                immediate = old_root / old_note.relative_to(old_root).parts[0]
+                new_immediate = Path(mapping[str(immediate)])
+                new_note = new_immediate / old_note.relative_to(immediate)
+                new_folder_id = parent_id if note['folder_id'] == folder_id else note['folder_id']
+                c.execute('UPDATE notes SET folder_id=?,note_file=? WHERE id=?',
+                          (new_folder_id, str(new_note), note['id']))
+            c.execute('UPDATE folders SET parent_id=? WHERE parent_id=?', (parent_id, folder_id))
+            c.execute('DELETE FROM folders WHERE id=?', (folder_id,))
+            return
+
+        root_path = repository.root(repository_path)
+        managed_directories = [root_path / _folder_relative(c, child_id)
+                               for child_id in descendants if child_id != folder_id]
+        repository.delete_folder_tree(
+            repository_path, relative,
+            {note['note_file']: note['content'] for note in notes}, managed_directories,
+        )
+        note_ids = [note['id'] for note in notes]
+        for note_id in note_ids:
+            c.execute('DELETE FROM messages WHERE note_id=?', (note_id,))
+            c.execute('DELETE FROM revisions WHERE note_id=?', (note_id,))
+            c.execute('DELETE FROM jobs WHERE note_id=?', (note_id,))
+        if note_ids:
+            note_placeholders = ','.join('?' for _ in note_ids)
+            c.execute(f'DELETE FROM notes WHERE id IN ({note_placeholders})', note_ids)
+        c.execute(f'DELETE FROM folders WHERE id IN ({placeholders})', descendants)
+
+
 def move_note(note_id, folder_id=None):
     with db() as c:
         note = c.execute('SELECT * FROM notes WHERE id=?', (note_id,)).fetchone()
         if not note:
             raise ValueError('笔记不存在')
-        folder_name = ''
+        folder_path = Path()
         if folder_id:
-            folder = c.execute('SELECT * FROM folders WHERE id=?', (folder_id,)).fetchone()
-            if not folder:
-                raise ValueError('目标文件夹不存在')
-            folder_name = folder['name']
+            folder_path = _folder_relative(c, folder_id)
         if note['folder_id'] == folder_id:
             return
         path = repository.move(
-            settings(True)['repository_path'], note['note_file'], note['content'], folder_name,
+            settings(True)['repository_path'], note['note_file'], note['content'], folder_path,
         )
         c.execute('UPDATE notes SET folder_id=?,note_file=? WHERE id=?', (folder_id, path, note_id))
 

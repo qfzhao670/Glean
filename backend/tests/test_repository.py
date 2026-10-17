@@ -198,6 +198,20 @@ def test_upgrade_adds_file_column_to_original_database(tmp_path, monkeypatch):
     assert note['source'] == '课程.txt'
 
 
+def test_upgrade_changes_legacy_global_folder_names_to_sibling_uniqueness(tmp_path, monkeypatch):
+    folder = tmp_path / 'old-folder-data'
+    folder.mkdir()
+    monkeypatch.setattr(store, 'DATA', folder)
+    with store.db() as db:
+        db.execute('CREATE TABLE folders (id TEXT PRIMARY KEY, name TEXT UNIQUE, created_at TEXT)')
+        db.execute('INSERT INTO folders VALUES (?,?,?)', ('legacy-folder', '资料', store.now()))
+    store.init()
+    parent = store.create_folder('项目')
+    nested = store.create_folder('资料', parent['id'])
+    assert nested['parent_id'] == parent['id']
+    assert (folder / 'notes' / '项目' / '资料').is_dir()
+
+
 def test_create_folder_and_move_note_moves_the_markdown_file(client):
     note = client.post('/api/notes', json={'title': '缓存', 'content': '# 缓存\n正文'}).json()
     original = Path(note['note_file'])
@@ -281,6 +295,7 @@ def test_folder_names_cannot_escape_repository(client, name):
 def test_repository_switch_preserves_folder_structure(client, tmp_path):
     note = client.post('/api/notes', json={'title': '分组笔记', 'content': '正文'}).json()
     folder = client.post('/api/folders', json={'name': '专题'}).json()
+    client.post('/api/folders', json={'name': '空子目录', 'parent_id': folder['id']})
     client.put(f'/api/notes/{note["id"]}/folder', json={'folder_id': folder['id']})
     destination = tmp_path / '新仓库'
     destination.mkdir()
@@ -288,3 +303,75 @@ def test_repository_switch_preserves_folder_structure(client, tmp_path):
     updated = client.get(f'/api/notes/{note["id"]}').json()
     assert Path(updated['note_file']).parent == destination / '专题'
     assert Path(updated['note_file']).read_text() == '正文'
+    assert (destination / '专题' / '空子目录').is_dir()
+
+
+def test_nested_folder_creation_and_folder_move_preserve_note_paths(client):
+    parent = client.post('/api/folders', json={'name': '课程'}).json()
+    child = client.post('/api/folders', json={'name': '第一章', 'parent_id': parent['id']}).json()
+    assert child['parent_id'] == parent['id']
+    assert (store.DATA / 'notes' / '课程' / '第一章').is_dir()
+
+    note = client.post('/api/notes', json={'title': '导论', 'content': '# 导论'}).json()
+    moved_note = client.put(f'/api/notes/{note["id"]}/folder', json={'folder_id': child['id']}).json()
+    assert Path(moved_note['note_file']).parent == store.DATA / 'notes' / '课程' / '第一章'
+
+    response = client.put(f'/api/folders/{child["id"]}/parent', json={'parent_id': None})
+    assert response.status_code == 200
+    updated = client.get(f'/api/notes/{note["id"]}').json()
+    assert Path(updated['note_file']).parent == store.DATA / 'notes' / '第一章'
+    folders = {folder['id']: folder for folder in client.get('/api/folders').json()}
+    assert folders[child['id']]['parent_id'] is None
+    assert folders[child['id']]['path'] == '第一章'
+
+
+def test_folder_cannot_be_moved_into_itself_or_a_descendant(client):
+    parent = client.post('/api/folders', json={'name': '父级'}).json()
+    child = client.post('/api/folders', json={'name': '子级', 'parent_id': parent['id']}).json()
+    assert client.put(f'/api/folders/{parent["id"]}/parent', json={'parent_id': parent['id']}).status_code == 400
+    assert client.put(f'/api/folders/{parent["id"]}/parent', json={'parent_id': child['id']}).status_code == 400
+    assert (store.DATA / 'notes' / '父级' / '子级').is_dir()
+
+
+def test_nested_folders_only_require_unique_names_within_the_same_parent(client):
+    first = client.post('/api/folders', json={'name': '项目甲'}).json()
+    second = client.post('/api/folders', json={'name': '项目乙'}).json()
+    assert client.post('/api/folders', json={'name': '资料', 'parent_id': first['id']}).status_code == 200
+    assert client.post('/api/folders', json={'name': '资料', 'parent_id': second['id']}).status_code == 200
+    assert client.post('/api/folders', json={'name': '资料', 'parent_id': first['id']}).status_code == 400
+
+
+def test_delete_folder_can_promote_notes_subfolders_and_unmanaged_files(client):
+    parent = client.post('/api/folders', json={'name': '待删除'}).json()
+    child = client.post('/api/folders', json={'name': '保留子目录', 'parent_id': parent['id']}).json()
+    direct = client.post('/api/notes', json={'title': '直接笔记', 'content': '直接内容'}).json()
+    nested = client.post('/api/notes', json={'title': '嵌套笔记', 'content': '嵌套内容'}).json()
+    client.put(f'/api/notes/{direct["id"]}/folder', json={'folder_id': parent['id']})
+    client.put(f'/api/notes/{nested["id"]}/folder', json={'folder_id': child['id']})
+    (store.DATA / 'notes' / '待删除' / '用户附件.txt').write_text('保留')
+
+    response = client.delete(f'/api/folders/{parent["id"]}?mode=promote')
+    assert response.status_code == 200
+    assert not (store.DATA / 'notes' / '待删除').exists()
+    assert (store.DATA / 'notes' / '用户附件.txt').read_text() == '保留'
+    direct_after = client.get(f'/api/notes/{direct["id"]}').json()
+    nested_after = client.get(f'/api/notes/{nested["id"]}').json()
+    assert direct_after['folder_id'] is None
+    assert Path(direct_after['note_file']).parent == store.DATA / 'notes'
+    assert nested_after['folder_id'] == child['id']
+    assert Path(nested_after['note_file']).parent == store.DATA / 'notes' / '保留子目录'
+    folders = client.get('/api/folders').json()
+    assert len(folders) == 1 and folders[0]['id'] == child['id'] and folders[0]['parent_id'] is None
+
+
+def test_delete_folder_with_contents_removes_the_whole_managed_subtree(client):
+    parent = client.post('/api/folders', json={'name': '整组删除'}).json()
+    child = client.post('/api/folders', json={'name': '子组', 'parent_id': parent['id']}).json()
+    note = client.post('/api/notes', json={'title': '要删除', 'content': '正文'}).json()
+    client.put(f'/api/notes/{note["id"]}/folder', json={'folder_id': child['id']})
+
+    response = client.delete(f'/api/folders/{parent["id"]}?mode=delete')
+    assert response.status_code == 200
+    assert not (store.DATA / 'notes' / '整组删除').exists()
+    assert client.get(f'/api/notes/{note["id"]}').status_code == 404
+    assert client.get('/api/folders').json() == []

@@ -7,6 +7,7 @@ import { api, post, type Folder, type Note } from '../api';
 
 export type LibraryFilter = 'all' | 'folders' | 'notes' | 'ai' | 'manual';
 type SortOrder = 'newest' | 'oldest' | 'title';
+type DraggedItem = { type: 'note' | 'folder'; id: string };
 
 export default function Library({ notes, folders, filter, selectedFolder, onFilterChange, onFolderChange, onOpen, onGenerate, onChanged, notify }: {
   notes: Note[]; folders: Folder[]; onOpen: (id: string, edit?: boolean) => void; onGenerate: () => void;
@@ -21,9 +22,11 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
   const [error, setError] = useState('');
   const [folderDialog, setFolderDialog] = useState<'create' | 'rename' | null>(null);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  const [deletingFolder, setDeletingFolder] = useState<Folder | null>(null);
   const [folderName, setFolderName] = useState('');
-  const [draggingNote, setDraggingNote] = useState('');
+  const [draggingItem, setDraggingItem] = useState<DraggedItem | null>(null);
   const [dropTarget, setDropTarget] = useState('');
+  const draggingItemRef = useRef<DraggedItem | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -32,7 +35,7 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
         event.preventDefault();
         searchRef.current?.focus();
       }
-      if (event.key === 'Escape') setFolderDialog(null);
+      if (event.key === 'Escape') { setFolderDialog(null); setDeletingFolder(null); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -73,7 +76,7 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
     void work(renaming ? 'folder-rename' : 'folder-create', async () => {
       const folder = renaming
         ? await api<Folder>(`/folders/${editingFolder.id}`, { method: 'PUT', body: JSON.stringify({ name }) })
-        : await post<Folder>('/folders', { name });
+        : await post<Folder>('/folders', { name, parent_id: selectedFolder });
       setFolderDialog(null);
       setEditingFolder(null);
       setFolderName('');
@@ -107,23 +110,106 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
     });
   };
 
+  const descendantIds = (folderId: string) => {
+    const result = new Set<string>();
+    const pending = [folderId];
+    while (pending.length) {
+      const id = pending.pop()!;
+      if (result.has(id)) continue;
+      result.add(id);
+      folders.filter(folder => folder.parent_id === id).forEach(folder => pending.push(folder.id));
+    }
+    return result;
+  };
+
+  const moveFolder = (folder: Folder, parentId: string | null) => {
+    if ((folder.parent_id || null) === parentId || busy) return;
+    void work('move-folder-' + folder.id, async () => {
+      await api(`/folders/${folder.id}/parent`, { method: 'PUT', body: JSON.stringify({ parent_id: parentId }) });
+      await onChanged();
+      const destination = parentId ? folders.find(item => item.id === parentId)?.name : '笔记根目录';
+      notify(`文件夹「${folder.name}」已移至「${destination || '目标文件夹'}」`);
+    });
+  };
+
+  const removeFolder = (folder: Folder, mode: 'delete' | 'promote') => {
+    void work('delete-folder-' + folder.id, async () => {
+      await api(`/folders/${folder.id}?mode=${mode}`, { method: 'DELETE' });
+      setDeletingFolder(null);
+      if (selectedFolder && descendantIds(folder.id).has(selectedFolder)) onFolderChange(folder.parent_id || null);
+      await onChanged();
+      notify(mode === 'delete' ? `文件夹「${folder.name}」及其中内容已删除` : `文件夹「${folder.name}」已删除，内容已移到同级目录`);
+    });
+  };
+
+  const requestDeleteFolder = (folder: Folder) => {
+    if (folder.descendant_note_count > 0) {
+      setDeletingFolder(folder);
+      return;
+    }
+    if (window.confirm(`确定删除文件夹「${folder.name}」及其中的所有内容吗？`)) removeFolder(folder, 'delete');
+  };
+
+  const canDropInto = (item: DraggedItem | null, folder: Folder) => !!item
+    && item.id !== folder.id
+    && (item.type === 'note' || !descendantIds(item.id).has(folder.id));
+
+  const beginDrag = (event: DragEvent<HTMLElement>, item: DraggedItem) => {
+    draggingItemRef.current = item;
+    setDraggingItem(item);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('application/x-glean-item', `${item.type}:${item.id}`);
+    event.dataTransfer.setData('text/plain', `${item.type}:${item.id}`);
+  };
+
+  const endDrag = () => {
+    draggingItemRef.current = null;
+    setDraggingItem(null);
+    setDropTarget('');
+  };
+
   const folderDropProps = (folder: Folder) => ({
-    onDragEnter: (event: DragEvent<HTMLElement>) => { event.preventDefault(); if (draggingNote) setDropTarget(folder.id); },
-    onDragOver: (event: DragEvent<HTMLElement>) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; },
-    onDragLeave: (event: DragEvent<HTMLElement>) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTarget(''); },
+    onDragEnter: (event: DragEvent<HTMLElement>) => {
+      event.preventDefault();
+      if (canDropInto(draggingItemRef.current, folder)) setDropTarget(folder.id);
+    },
+    onDragOver: (event: DragEvent<HTMLElement>) => {
+      event.preventDefault();
+      const allowed = canDropInto(draggingItemRef.current, folder);
+      event.dataTransfer.dropEffect = allowed ? 'move' : 'none';
+      // dragstart state updates asynchronously. Reasserting the target during
+      // dragover makes fast pointer movements reliable as well.
+      if (allowed && dropTarget !== folder.id) setDropTarget(folder.id);
+    },
+    onDragLeave: (event: DragEvent<HTMLElement>) => {
+      const bounds = event.currentTarget.getBoundingClientRect();
+      if (event.clientX <= bounds.left || event.clientX >= bounds.right
+        || event.clientY <= bounds.top || event.clientY >= bounds.bottom) setDropTarget('');
+    },
     onDrop: (event: DragEvent<HTMLElement>) => {
       event.preventDefault();
-      const noteId = event.dataTransfer.getData('text/plain') || draggingNote;
-      const note = notes.find(item => item.id === noteId);
-      setDraggingNote('');
+      const active = draggingItemRef.current;
+      const raw = event.dataTransfer.getData('application/x-glean-item')
+        || event.dataTransfer.getData('text/plain')
+        || (active ? `${active.type}:${active.id}` : '');
+      const [type, id] = raw.includes(':') ? raw.split(':', 2) : ['note', raw];
+      draggingItemRef.current = null;
+      setDraggingItem(null);
       setDropTarget('');
-      if (note) moveNote(note, folder.id);
+      if (type === 'folder') {
+        const source = folders.find(item => item.id === id);
+        if (source && source.id !== folder.id && !descendantIds(source.id).has(folder.id)) moveFolder(source, folder.id);
+      } else {
+        const note = notes.find(item => item.id === id);
+        if (note) moveNote(note, folder.id);
+      }
     },
   });
 
   const currentFolder = folders.find(folder => folder.id === selectedFolder) || null;
-  const folderCards = !selectedFolder && (filter === 'all' || filter === 'folders')
-    ? folders.filter(folder => folder.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())) : [];
+  const parentFolder = folders.find(folder => folder.id === currentFolder?.parent_id) || null;
+  const folderCards = (selectedFolder || filter === 'all' || filter === 'folders')
+    ? folders.filter(folder => (folder.parent_id || null) === selectedFolder && folder.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())) : [];
   const visibleNotes = useMemo(() => {
     if (filter === 'folders' && !selectedFolder) return [];
     const query = search.trim().toLocaleLowerCase();
@@ -138,7 +224,7 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
           ? left.updated_at.localeCompare(right.updated_at)
           : right.updated_at.localeCompare(left.updated_at));
   }, [filter, notes, search, selectedFolder, sort]);
-  const contentCount = selectedFolder ? visibleNotes.length : folderCards.length + visibleNotes.length;
+  const contentCount = folderCards.length + visibleNotes.length;
 
   const chooseFilter = (value: LibraryFilter) => {
     onFolderChange(null);
@@ -149,10 +235,10 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
     <div className="library library-flat page-enter">
       <div className="page-heading library-heading">
         <div>
-          {currentFolder && <button className="library-back" onClick={() => onFolderChange(null)}><ArrowLeft size={15}/>{filter === 'folders' ? '返回文件夹' : '返回全部'}</button>}
+          {currentFolder && <button className="library-back" onClick={() => onFolderChange(currentFolder.parent_id || null)}><ArrowLeft size={15}/>返回{parentFolder ? `「${parentFolder.name}」` : filter === 'folders' ? '文件夹' : '全部'}</button>}
           <span className="section-kicker">理解，记录，慢慢连接</span>
-          <div className="folder-heading-title"><h1>{currentFolder?.name || '我的笔记'}</h1>{currentFolder && <button className="folder-heading-rename" title="修改文件夹名称" aria-label={`修改文件夹「${currentFolder.name}」的名称`} onClick={() => openRenameFolder(currentFolder)}><Pencil size={14}/></button>}</div>
-          <p>{currentFolder ? `${currentFolder.note_count} 篇笔记 · 新建与导入的内容会直接保存到这里。` : `${contentCount} 项内容 · 拖动笔记卡片到文件夹，让知识各归其位。`}</p>
+          <div className="folder-heading-title"><h1>{currentFolder?.name || '我的笔记'}</h1>{currentFolder && <><button className="folder-heading-rename" title="修改文件夹名称" aria-label={`修改文件夹「${currentFolder.name}」的名称`} onClick={() => openRenameFolder(currentFolder)}><Pencil size={14}/></button><button className="folder-heading-delete" title="删除文件夹" aria-label={`删除文件夹「${currentFolder.name}」`} onClick={() => requestDeleteFolder(currentFolder)}><Trash2 size={14}/></button></>}</div>
+          <p>{currentFolder ? `${currentFolder.note_count} 篇笔记 · ${currentFolder.child_count} 个子文件夹 · 新建内容会直接保存到这里。` : `${contentCount} 项内容 · 拖动笔记或文件夹，让知识各归其位。`}</p>
         </div>
         <div className="library-actions">
           <button className="button secondary" disabled={!!busy} onClick={openCreateFolder}><FolderPlus size={16}/>新建文件夹</button>
@@ -171,7 +257,7 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
             ['all', '全部'], ['folders', '文件夹'], ['notes', '笔记'], ['ai', 'AI 笔记'], ['manual', '手写 / 导入'],
           ].map(([key, label]) => <button key={key} role="tab" aria-selected={filter === key} className={filter === key ? 'active' : ''} onClick={() => chooseFilter(key as LibraryFilter)}>{label}</button>)}
         </div>}
-        {selectedFolder && <div className="folder-current-label"><FolderIcon size={16}/><span>{currentFolder?.name}</span><b>{visibleNotes.length} 篇</b></div>}
+        {selectedFolder && <div className="folder-current-label"><FolderIcon size={16}/><span>{currentFolder?.path || currentFolder?.name}</span><b>{contentCount} 项</b></div>}
         <div className="library-view-controls">
           <label className="search-field"><Search size={16}/><input ref={searchRef} placeholder="搜索标题与摘要…" aria-label="搜索笔记" value={search} onChange={event => setSearch(event.target.value)}/><kbd>⌘ K</kbd></label>
           <label className="sort-select" aria-label="排序方式"><select value={sort} onChange={event => setSort(event.target.value as SortOrder)}><option value="newest">最近更新</option><option value="oldest">最早更新</option><option value="title">标题排序</option></select></label>
@@ -182,35 +268,43 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
       {contentCount ? <div className={`content-grid ${layout === 'list' ? 'list-layout' : ''}`}>
         {folderCards.map(folder => {
           const children = notes.filter(note => note.folder_id === folder.id);
-          const description = children.length ? children.slice(0, 3).map(note => note.title).join('、') : '把相关笔记拖到这里';
-          return <article key={folder.id} {...folderDropProps(folder)} className={`folder-card ${dropTarget === folder.id ? 'drop-target' : ''}`}>
+          const childFolders = folders.filter(item => item.parent_id === folder.id);
+          const descriptionItems = [...childFolders.map(item => item.name), ...children.map(note => note.title)];
+          const description = descriptionItems.length ? descriptionItems.slice(0, 3).join('、') : '把相关笔记或文件夹拖到这里';
+          const invalidDestinations = descendantIds(folder.id);
+          return <article key={folder.id} {...folderDropProps(folder)} draggable={!busy} onDragStart={event => beginDrag(event, { type: 'folder', id: folder.id })} onDragEnd={endDrag} className={`folder-card ${dropTarget === folder.id ? 'drop-target' : ''} ${draggingItem?.type === 'folder' && draggingItem.id === folder.id ? 'is-dragging' : ''}`}>
             <button className="folder-card-open" aria-label={`打开文件夹「${folder.name}」`} onClick={() => onFolderChange(folder.id)}/>
-            <button className="folder-card-rename" title="修改文件夹名称" aria-label={`修改文件夹「${folder.name}」的名称`} onClick={() => openRenameFolder(folder)}><Pencil size={14}/></button>
+            <div className="folder-card-tools" onClick={event => event.stopPropagation()} onMouseDown={event => event.stopPropagation()}>
+              <label className="note-move folder-card-move" title="移动文件夹"><FolderIcon size={14}/><select aria-label={`移动文件夹「${folder.name}」`} value={folder.parent_id || ''} disabled={!!busy} onChange={event => { moveFolder(folder, event.target.value || null); event.currentTarget.blur(); }}><option value="">笔记根目录</option>{folders.filter(item => !invalidDestinations.has(item.id)).map(item => <option key={item.id} value={item.id}>{item.path}</option>)}</select></label>
+              <button className="folder-card-rename" title="修改文件夹名称" aria-label={`修改文件夹「${folder.name}」的名称`} onClick={() => openRenameFolder(folder)}><Pencil size={14}/></button>
+              <button className="folder-card-delete" title="删除文件夹" aria-label={`删除文件夹「${folder.name}」`} onClick={() => requestDeleteFolder(folder)}>{busy === 'delete-folder-' + folder.id ? <span className="delete-progress"/> : <Trash2 size={14}/>}</button>
+            </div>
             <span className="card-grip"><GripVertical size={15}/></span>
             <span className="folder-card-icon"><FolderIcon size={31}/></span>
             <strong>{folder.name}</strong>
             <p>{description}</p>
-            <footer><span>{folder.note_count} 项内容</span><ArrowUpRight size={16}/></footer>
-            {dropTarget === folder.id && <em>松开以移入</em>}
+            <footer><span>{folder.note_count + folder.child_count} 项内容</span><ArrowUpRight size={16}/></footer>
+            {dropTarget === folder.id && <em>松开以挪入</em>}
           </article>;
         })}
-        {visibleNotes.map(note => <article key={note.id} className={`note-card note-card-flat ${draggingNote === note.id ? 'is-dragging' : ''}`} role="button" tabIndex={0} draggable={!busy} onDragStart={event => { setDraggingNote(note.id); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', note.id); }} onDragEnd={() => { setDraggingNote(''); setDropTarget(''); }} onClick={() => onOpen(note.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpen(note.id); } }}>
+        {visibleNotes.map(note => <article key={note.id} className={`note-card note-card-flat ${draggingItem?.type === 'note' && draggingItem.id === note.id ? 'is-dragging' : ''}`} role="button" tabIndex={0} draggable={!busy} onDragStart={event => beginDrag(event, { type: 'note', id: note.id })} onDragEnd={endDrag} onClick={() => onOpen(note.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpen(note.id); } }}>
           <header>
             <span className="card-grip" title="拖动到文件夹"><GripVertical size={15}/></span>
             <span className="note-file-icon"><FileText size={20}/></span>
             <span className="tag">{note.kind === 'manual' ? '手写笔记' : note.kind === 'curate' ? 'AI 整理' : 'AI 生成'}</span>
-            <label className="note-move" title="移动到文件夹" onClick={event => event.stopPropagation()}><FolderIcon size={14}/><select aria-label={`移动《${note.title}》到文件夹`} value={note.folder_id || ''} disabled={!!busy} onChange={event => moveNote(note, event.target.value || null)}><option value="">未分类</option>{folders.map(folder => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>
+            <label className="note-move" title="移动到文件夹" onClick={event => event.stopPropagation()}><FolderIcon size={14}/><select aria-label={`移动《${note.title}》到文件夹`} value={note.folder_id || ''} disabled={!!busy} onChange={event => { moveNote(note, event.target.value || null); event.currentTarget.blur(); }}><option value="">未分类</option>{folders.map(folder => <option key={folder.id} value={folder.id}>{folder.path}</option>)}</select></label>
             <button className="note-delete" title="删除笔记" aria-label={`删除《${note.title}》`} disabled={!!busy} onClick={event => { event.stopPropagation(); if (!window.confirm(`确定删除《${note.title}》吗？本地 Markdown 文件也会一并删除。`)) return; void work('delete-' + note.id, async () => { await api(`/notes/${note.id}`, { method: 'DELETE' }); await onChanged(); }); }}>{busy === 'delete-' + note.id ? <span className="delete-progress"/> : <Trash2 size={15}/>}</button>
           </header>
           <h2>{note.title}</h2>
           <p>{note.excerpt}</p>
-          <div className="note-file-path" title={note.note_file}>{note.folder_name ? `${note.folder_name} / ` : ''}{note.note_file ? note.note_file.split(/[\\/]/).pop() : '等待保存到仓库'}</div>
+          <div className="note-file-path" title={note.note_file}>{note.folder_id ? `${folders.find(folder => folder.id === note.folder_id)?.path || note.folder_name} / ` : ''}{note.note_file ? note.note_file.split(/[\\/]/).pop() : '等待保存到仓库'}</div>
           <footer><span>{new Date(note.updated_at).toLocaleDateString('zh-CN')} 更新</span><ArrowUpRight size={16}/></footer>
         </article>)}
         {(filter !== 'folders' || selectedFolder) && <button className="new-note-tile new-note-tile-flat" onClick={onGenerate} disabled={!!busy}><span><Sparkles size={19}/></span><strong>AI 新建笔记</strong><p>从字幕、视频或已有笔记，<br/>交给 AI 整理。</p></button>}
-      </div> : <div className="library-empty library-empty-flat"><BookOpen size={42} strokeWidth={1}/><h2>{search ? '没有找到匹配的内容' : filter === 'folders' ? '新建一个文件夹，让知识各归其位。' : currentFolder ? `「${currentFolder.name}」还是空的` : '从一份素材，或一页空白开始。'}</h2><p>{currentFolder ? '你可以在这里新建笔记，或从“全部内容”拖动笔记到这个文件夹。' : 'AI 生成与手写笔记，都以 Markdown 文件保存在本地仓库。'}</p><div className="library-actions"><button className="button secondary" onClick={filter === 'folders' ? openCreateFolder : create}>{filter === 'folders' ? <FolderPlus size={16}/> : <Plus size={16}/>} {filter === 'folders' ? '新建文件夹' : '写一篇笔记'}</button>{filter !== 'folders' && <button className="button primary" onClick={onGenerate}><Sparkles size={16}/>让 AI 帮我整理</button>}</div></div>}
+      </div> : <div className="library-empty library-empty-flat"><BookOpen size={42} strokeWidth={1}/><h2>{search ? '没有找到匹配的内容' : filter === 'folders' ? '新建一个文件夹，让知识各归其位。' : currentFolder ? `「${currentFolder.name}」还是空的` : '从一份素材，或一页空白开始。'}</h2><p>{currentFolder ? '你可以在这里新建子文件夹或笔记。' : 'AI 生成与手写笔记，都以 Markdown 文件保存在本地仓库。'}</p><div className="library-actions"><button className="button secondary" onClick={filter === 'folders' ? openCreateFolder : create}>{filter === 'folders' ? <FolderPlus size={16}/> : <Plus size={16}/>} {filter === 'folders' ? '新建文件夹' : '写一篇笔记'}</button>{filter !== 'folders' && <button className="button primary" onClick={onGenerate}><Sparkles size={16}/>让 AI 帮我整理</button>}</div></div>}
     </div>
 
-    {folderDialog && <div className="folder-dialog-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setFolderDialog(null); }}><form className="folder-dialog" role="dialog" aria-modal="true" aria-labelledby="folder-dialog-title" onSubmit={saveFolder}><button type="button" className="icon-button folder-dialog-close" aria-label="关闭" onClick={() => setFolderDialog(null)}><X size={17}/></button><span className="folder-dialog-icon">{folderDialog === 'rename' ? <Pencil size={22}/> : <FolderPlus size={23}/>}</span><h2 id="folder-dialog-title">{folderDialog === 'rename' ? '修改文件夹名称' : '新建文件夹'}</h2><p>{folderDialog === 'rename' ? '名称会与本地笔记仓库中的文件夹同步修改。' : '文件夹会同步创建在你的本地笔记仓库中。'}</p><label>文件夹名称<input autoFocus maxLength={60} placeholder="例如：产品设计" value={folderName} onChange={event => setFolderName(event.target.value)}/></label><div><button type="button" className="button secondary" onClick={() => setFolderDialog(null)}>取消</button><button type="submit" className="button primary" disabled={!folderName.trim() || busy === 'folder-create' || busy === 'folder-rename'}>{busy === 'folder-create' ? '正在创建…' : busy === 'folder-rename' ? '正在保存…' : folderDialog === 'rename' ? '保存名称' : '创建文件夹'}</button></div></form></div>}
+    {folderDialog && <div className="folder-dialog-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setFolderDialog(null); }}><form className="folder-dialog" role="dialog" aria-modal="true" aria-labelledby="folder-dialog-title" onSubmit={saveFolder}><button type="button" className="icon-button folder-dialog-close" aria-label="关闭" onClick={() => setFolderDialog(null)}><X size={17}/></button><span className="folder-dialog-icon">{folderDialog === 'rename' ? <Pencil size={22}/> : <FolderPlus size={23}/>}</span><h2 id="folder-dialog-title">{folderDialog === 'rename' ? '修改文件夹名称' : '新建文件夹'}</h2><p>{folderDialog === 'rename' ? '名称会与本地笔记仓库中的文件夹同步修改。' : currentFolder ? `文件夹会创建在「${currentFolder.name}」中。` : '文件夹会创建在笔记根目录中。'}</p><label>文件夹名称<input autoFocus maxLength={60} placeholder="例如：产品设计" value={folderName} onChange={event => setFolderName(event.target.value)}/></label><div><button type="button" className="button secondary" onClick={() => setFolderDialog(null)}>取消</button><button type="submit" className="button primary" disabled={!folderName.trim() || busy === 'folder-create' || busy === 'folder-rename'}>{busy === 'folder-create' ? '正在创建…' : busy === 'folder-rename' ? '正在保存…' : folderDialog === 'rename' ? '保存名称' : '创建文件夹'}</button></div></form></div>}
+    {deletingFolder && <div className="folder-dialog-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && !busy) setDeletingFolder(null); }}><div className="folder-dialog folder-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="folder-delete-title"><button type="button" className="icon-button folder-dialog-close" aria-label="关闭" disabled={!!busy} onClick={() => setDeletingFolder(null)}><X size={17}/></button><span className="folder-dialog-icon folder-delete-icon"><Trash2 size={22}/></span><h2 id="folder-delete-title">删除「{deletingFolder.name}」？</h2><p>这个文件夹及子文件夹中共有 {deletingFolder.descendant_note_count} 篇笔记。请选择如何处理其中的内容。</p><div className="folder-delete-actions"><button type="button" className="button secondary" disabled={!!busy} onClick={() => setDeletingFolder(null)}>取消</button><button type="button" className="button secondary" disabled={!!busy} onClick={() => removeFolder(deletingFolder, 'promote')}>仅删除文件夹<br/><small>内容移到同级目录</small></button><button type="button" className="button danger" disabled={!!busy} onClick={() => removeFolder(deletingFolder, 'delete')}>{busy ? '正在删除…' : '删除全部内容'}</button></div></div></div>}
   </>;
 }
