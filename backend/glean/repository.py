@@ -344,6 +344,23 @@ def read_asset(folder, note_id, filename):
     return target
 
 
+def remove_asset(folder, note_id, filename):
+    """Remove one app-managed image and its directory when it becomes empty."""
+    folder, directory, target = _asset_path(folder, note_id, filename)
+    try:
+        if target.is_symlink() or not target.is_file() or not target.resolve().is_relative_to(folder):
+            raise ValueError('图片不存在或已移出当前仓库。')
+        target.unlink()
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
+    except ValueError:
+        raise
+    except OSError as exc:
+        raise ValueError('无法从笔记仓库删除图片，请检查文件夹权限。') from exc
+
+
 def copy_assets(source_folder, target_folder):
     """Carry managed images along when the user changes the repository folder."""
     source = root(source_folder) / 'assets'

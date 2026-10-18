@@ -68,6 +68,22 @@ def test_pasted_image_is_saved_served_and_moves_with_repository(client, tmp_path
     assert (target / path).read_bytes() == response.content
 
 
+def test_pasted_image_can_be_permanently_deleted(client):
+    created = client.post('/api/notes', json={'title': '删除图片'}).json()
+    uploaded = client.post(f'/api/notes/{created["id"]}/images', files={
+        'file': ('待删除.png', b'fixture-image', 'image/png'),
+    }).json()
+    filename = Path(uploaded['path']).name
+    asset = Path(store.settings(True)['repository_path']) / uploaded['path']
+    assert asset.is_file()
+
+    response = client.delete(f'/api/notes/{created["id"]}/images/{filename}')
+
+    assert response.json() == {'ok': True}
+    assert not asset.exists()
+    assert client.get(f'/api/notes/{created["id"]}/images/{filename}').status_code == 400
+
+
 def test_pasted_image_rejects_unsupported_or_oversized_files(client):
     created = client.post('/api/notes', json={'title': '图片限制'}).json()
     unsupported = client.post(f'/api/notes/{created["id"]}/images', files={

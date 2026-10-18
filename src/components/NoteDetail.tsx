@@ -190,7 +190,7 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
 
   function readingBlocks() {
     return Array.from(noteDocument.current?.querySelectorAll<HTMLElement>(
-      '.rich-markdown-editor > h1,.rich-markdown-editor > h2,.rich-markdown-editor > h3,.rich-markdown-editor > h4,.rich-markdown-editor > h5,.rich-markdown-editor > h6,.rich-markdown-editor > p,.rich-markdown-editor > ul,.rich-markdown-editor > ol,.rich-markdown-editor > blockquote,.rich-markdown-editor > pre,.rich-markdown-editor > table,.rich-markdown-editor > img,.rich-markdown-editor > span.image-ref',
+      '.rich-markdown-editor > h1,.rich-markdown-editor > h2,.rich-markdown-editor > h3,.rich-markdown-editor > h4,.rich-markdown-editor > h5,.rich-markdown-editor > h6,.rich-markdown-editor > p,.rich-markdown-editor > ul,.rich-markdown-editor > ol,.rich-markdown-editor > blockquote,.rich-markdown-editor > pre,.rich-markdown-editor > table,.rich-markdown-editor > span.note-image-frame,.rich-markdown-editor > span.image-ref',
     ) || []);
   }
 

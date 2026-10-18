@@ -155,8 +155,14 @@
 .column-resizer:hover,.column-resizer:focus-visible{background:linear-gradient(90deg,transparent 3px,#91aa7b 3px,#91aa7b 6px,transparent 6px)}
 .editable-markdown{background:transparent;padding:13px 0 30px;margin-left:0}
 .note-image{display:block;max-width:100%;max-height:70vh;margin:18px auto;border-radius:8px;object-fit:contain;box-shadow:0 5px 24px #1e382818}
+.note-image-frame{position:relative;display:table;max-width:100%;margin:18px auto}
+.note-image-frame .note-image{margin:0}
 .rich-markdown-editor .note-image{cursor:zoom-in;transition:transform .18s ease,box-shadow .18s ease}
-.rich-markdown-editor .note-image:hover{transform:scale(1.012);box-shadow:0 8px 30px #1e382824}
+.rich-markdown-editor .note-image-frame:hover .note-image{transform:scale(1.012);box-shadow:0 8px 30px #1e382824}
+.note-image-delete{position:absolute;z-index:2;top:10px;right:10px;width:34px;height:34px;display:grid;place-items:center;border-radius:8px;background:#263c35c7;color:#fff;box-shadow:0 3px 12px #17282038;opacity:0;transform:translateY(-2px);transition:opacity .16s,transform .16s,background .16s}
+.note-image-frame:hover .note-image-delete,.note-image-delete:focus-visible{opacity:1;transform:translateY(0)}
+.note-image-delete:hover:not(:disabled){background:#a04f43}
+.note-image-delete:disabled{cursor:wait;opacity:.6}
 .markdown mark{padding:.08em .16em;border-radius:3px;background:linear-gradient(180deg,transparent 12%,#f4df87 12%,#f4df87 90%,transparent 90%);color:inherit;box-decoration-break:clone;-webkit-box-decoration-break:clone}
 .note-selection-menu{position:fixed;z-index:220;min-width:118px;padding:5px;border:1px solid #dce3dc;border-radius:8px;background:#fff;box-shadow:0 10px 30px #1c302329}
 .note-selection-menu button{width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:5px;color:#334b3f;font-size:12px;text-align:left}

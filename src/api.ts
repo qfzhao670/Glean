@@ -30,6 +30,9 @@ export async function uploadNoteImage(noteId: string, file: File): Promise<{ pat
   form.append('file', file);
   return api<{ path: string; alt: string }>(`/notes/${noteId}/images`, { method: 'POST', body: form });
 }
+export async function deleteNoteImage(noteId: string, filename: string): Promise<void> {
+  await api<{ ok: boolean }>(`/notes/${noteId}/images/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+}
 export async function uploadCompanionBackground(companion: CompanionId, file: File): Promise<CompanionBackground> {
   const form = new FormData();
   form.append('file', file);

@@ -1,8 +1,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { Eraser, Highlighter } from 'lucide-react';
+import { Eraser, Highlighter, Trash2 } from 'lucide-react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { apiBlob, uploadNoteImage } from '../api';
+import { apiBlob, deleteNoteImage, uploadNoteImage } from '../api';
 import { resolveEditorMarkdown } from '../editorChanges';
 import Markdown from './Markdown';
 
@@ -81,6 +81,10 @@ function nodeMarkdown(node: Node): string {
     const source = node.dataset.markdownSrc || node.getAttribute('src') || '';
     return `![${node.getAttribute('alt') || '笔记图片'}](${source})`;
   }
+  if (tag === 'SPAN' && node.classList.contains('note-image-frame')) {
+    const image = node.querySelector<HTMLImageElement>(':scope > img.note-image');
+    return image ? nodeMarkdown(image) : '';
+  }
   if (tag === 'SPAN' && node.dataset.markdownSrc) {
     return `![${node.dataset.markdownAlt || '笔记图片'}](${node.dataset.markdownSrc})`;
   }
@@ -106,6 +110,21 @@ function placeCaretAtEnd(element: Node) {
   const selection = window.getSelection();
   selection?.removeAllRanges();
   selection?.addRange(range);
+}
+
+function imageFrame(image: HTMLImageElement) {
+  const frame = document.createElement('span');
+  frame.className = 'note-image-frame';
+  frame.contentEditable = 'false';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'note-image-delete';
+  button.title = '删除图片';
+  button.setAttribute('aria-label', '删除图片');
+  button.innerHTML = renderToStaticMarkup(<Trash2 size={16}/>);
+  if (image.parentNode) image.replaceWith(frame);
+  frame.append(image, button);
+  return frame;
 }
 
 function replaceBlockShortcut(editor: HTMLElement) {
@@ -290,7 +309,7 @@ const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
         image.alt = placeholder.dataset.markdownAlt || '笔记图片';
         image.dataset.markdownSrc = source;
         image.className = 'note-image';
-        placeholder.replaceWith(image);
+        placeholder.replaceWith(imageFrame(image));
       } catch { /* Keep the readable image placeholder. */ }
     }
   }
@@ -300,6 +319,7 @@ const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
     if (!root || document.activeElement === root || dirty.current) return;
     revokeObjectUrls();
     root.innerHTML = renderToStaticMarkup(<Markdown text={value} noteId={noteId}/>);
+    for (const image of root.querySelectorAll<HTMLImageElement>('img.note-image')) imageFrame(image);
     baseline.current = editorMarkdown(root);
     dirty.current = false;
     void loadLocalImages();
@@ -387,7 +407,7 @@ const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
         image.alt = uploaded.alt;
         image.dataset.markdownSrc = uploaded.path;
         image.className = 'note-image';
-        markers[index].replaceWith(image);
+        markers[index].replaceWith(imageFrame(image));
       } catch (reason) {
         markers[index].remove();
         onError((reason as Error).message);
@@ -401,6 +421,13 @@ const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
   }
 
   function click(event: MouseEvent<HTMLElement>) {
+    const deleteButton = (event.target as HTMLElement).closest<HTMLButtonElement>('button.note-image-delete');
+    if (deleteButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      void removeImage(deleteButton);
+      return;
+    }
     const image = (event.target as HTMLElement).closest<HTMLImageElement>('img.note-image');
     if (image && onImagePreview) {
       event.preventDefault();
@@ -411,6 +438,31 @@ const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
     if (!link) return;
     event.preventDefault();
     onLink((link.dataset.wikilinkTarget || '').split('#')[0]);
+  }
+
+  async function removeImage(button: HTMLButtonElement) {
+    const root = editor.current;
+    const frame = button.closest<HTMLElement>('.note-image-frame');
+    const image = frame?.querySelector<HTMLImageElement>(':scope > img.note-image');
+    if (!root || !frame || !image) return;
+    const source = image.dataset.markdownSrc || '';
+    const prefix = `assets/${noteId}/`;
+    const filename = source.startsWith(prefix) ? source.slice(prefix.length) : '';
+    button.disabled = true;
+    try {
+      if (/^[0-9a-f]{32}\.(?:png|jpe?g|gif|webp)$/i.test(filename)) await deleteNoteImage(noteId, filename);
+      const matching = Array.from(root.querySelectorAll<HTMLImageElement>('img.note-image'))
+        .filter(candidate => candidate.dataset.markdownSrc === source);
+      for (const candidate of matching.length ? matching : [image]) {
+        const container = candidate.closest('.note-image-frame');
+        (container && root.contains(container) ? container : candidate).remove();
+      }
+      updateDirty();
+      notify('图片已删除');
+    } catch (reason) {
+      button.disabled = false;
+      onError((reason as Error).message);
+    }
   }
 
   function openContextMenu(event: MouseEvent<HTMLElement>) {

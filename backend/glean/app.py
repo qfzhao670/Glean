@@ -411,6 +411,13 @@ def note_image(note_id: str, filename: str):
     return FileResponse(path, headers={'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff'})
 
 
+@app.delete('/api/notes/{note_id}/images/{filename}')
+def delete_note_image(note_id: str, filename: str):
+    get_note(note_id)
+    repository.remove_asset(store.settings(True)['repository_path'], note_id, filename)
+    return {'ok': True}
+
+
 @app.delete('/api/notes/{note_id}')
 def delete_note(note_id: str):
     store.delete_note(note_id)
