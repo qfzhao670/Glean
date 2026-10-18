@@ -267,15 +267,17 @@ def update_job(job_id, **values):
         c.execute(f"UPDATE jobs SET {','.join(k+'=?' for k in values)} WHERE id=?", (*values.values(), job_id))
 
 
-def create_note(title, content, transcript, source, kind, duration=0):
+def create_note(title, content, transcript, source, kind, duration=0, folder_id=None):
     note_id, timestamp = uid(), now()
     with db() as c:
-        c.execute('INSERT INTO notes (id,title,content,transcript,source,kind,duration,vault_file,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
-                  (note_id, title, content, transcript, source, kind, duration, '', timestamp, timestamp))
+        relative = _folder_relative(c, folder_id) if folder_id else Path()
+        c.execute('INSERT INTO notes (id,title,content,transcript,source,kind,duration,vault_file,created_at,updated_at,folder_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                  (note_id, title, content, transcript, source, kind, duration, '', timestamp, timestamp, folder_id))
         c.execute('INSERT INTO events VALUES (?,?,?,?)', (uid(), 'manual' if kind == 'manual' else 'curated' if kind == 'curate' else 'generated', note_id, timestamp))
         for target in links(content):
             c.execute('INSERT OR IGNORE INTO knowledge_links VALUES (?,?,?)', (note_id, target, timestamp))
-        path = repository.write(settings(True)['repository_path'], title, content)
+        destination = repository.root(settings(True)['repository_path']) / relative
+        path = repository.write(str(destination), title, content)
         c.execute('UPDATE notes SET note_file=? WHERE id=?', (path, note_id))
     return note_id
 

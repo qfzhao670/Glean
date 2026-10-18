@@ -150,7 +150,10 @@ def run_job(job_id):
         else:
             raw_files = list(folder.glob('original.*'))
             transcript = raw_files[0].read_text(encoding='utf-8-sig') if raw_files else text
-            note_id = store.create_note(store.title_of(content, title), content, '' if original else transcript, source, job['kind'], duration)
+            note_id = store.create_note(
+                store.title_of(content, title), content, '' if original else transcript,
+                source, job['kind'], duration, payload.get('folder_id'),
+            )
             if original:
                 with store.db() as c:
                     c.execute('INSERT INTO revisions VALUES (?,?,?,?,?)', (store.uid(), note_id, original, 'original_import', store.now()))

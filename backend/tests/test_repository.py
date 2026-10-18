@@ -143,6 +143,25 @@ def test_generated_note_and_chat_patch_write_to_repository(client):
     assert '确定的解释' in Path(note['note_file']).read_text() == changed['content']
 
 
+def test_generated_note_is_created_in_the_job_target_folder(client):
+    parent = client.post('/api/folders', json={'name': '课程'}).json()
+    child = client.post('/api/folders', json={'name': '操作系统', 'parent_id': parent['id']}).json()
+    store.save_settings({'model': 'test'})
+    with patch.object(service.EXECUTOR, 'submit'):
+        job_id = service.new_job('curate', '进程', {
+            'content': '# 进程\n原始内容', 'folder_id': child['id'],
+        })
+    with patch.object(ai, 'generate', return_value='# 进程\n整理后的内容'):
+        service.run_job(job_id)
+
+    job = store.one('SELECT * FROM jobs WHERE id=?', (job_id,))
+    note = client.get('/api/notes/' + job['note_id']).json()
+    expected_folder = Path(store.settings(True)['repository_path']) / '课程' / '操作系统'
+    assert note['folder_id'] == child['id']
+    assert Path(note['note_file']).parent == expected_folder
+    assert Path(note['note_file']).read_text() == note['content']
+
+
 @pytest.mark.parametrize('today,first', [(date(2026, 9, 18), '2026-03-18'), (date(2024, 8, 31), '2024-02-29'), (date(2026, 1, 1), '2025-07-01')])
 def test_activity_covers_six_calendar_months_with_week_padding(client, today, first):
     with patch('glean.app.date') as mock_date:

@@ -344,7 +344,12 @@ export default function App() {
     {page === 'spirit' && <SpiritSea notes={notes} colorMode={theme} onColorModeToggle={toggleTheme} onOpenNote={openNote}/>}
     {page === 'settings' && <SettingsPage onSaved={refresh} notify={notify}/>}
     </main>{showingLibrary && <OverlayScrollbar target={mainScroll}/>}</div>
-    {modal && <CreateModal initial={modal} onClose={() => setModal(null)} onCreated={id => { setModal(null); notify('素材已收到，知识开始生长'); watchJob(id); }}/>}
+    {modal && <CreateModal
+      initial={modal}
+      folderId={page === 'notes' && !selected && !generatingJob ? libraryFolder : null}
+      onClose={() => setModal(null)}
+      onCreated={id => { setModal(null); notify('素材已收到，知识开始生长'); watchJob(id); }}
+    />}
     {toast && <div className="toast" role="status"><Check size={16}/>{toast}{toastNote && <button className="toast-open" onClick={() => { openNote(toastNote); setToast(''); setShowJobs(false); }}>查看笔记</button>}<button aria-label="关闭提示" onClick={() => setToast('')}><X size={14}/></button></div>}
   </div>;
 }

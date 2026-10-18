@@ -193,6 +193,7 @@ class JobInput(BaseModel):
     title: str = Field(default='新笔记', max_length=160)
     content: str = Field(default='', max_length=2_000_000)
     note_id: str = ''
+    folder_id: str | None = Field(default=None, max_length=64)
     detailed: bool = False
 
 
@@ -594,7 +595,8 @@ def create_job(value: JobInput):
 
 
 @app.post('/api/jobs/upload')
-async def upload(file: UploadFile = File(...), detailed: bool = Form(False)):
+async def upload(file: UploadFile = File(...), detailed: bool = Form(False),
+                 folder_id: str | None = Form(None, max_length=64)):
     filename = re.split(r'[/\\]', file.filename or '')[-1]
     suffix = Path(filename).suffix.lower()
     if suffix not in ('.txt', '.mp4'):
@@ -616,7 +618,8 @@ async def upload(file: UploadFile = File(...), detailed: bool = Form(False)):
                 digest.update(data)
         title = Path(filename).stem.strip() or ('字幕笔记' if kind == 'txt' else '视频笔记')
         return {'id': service.new_job(kind, title, {
-            'path': str(target), 'source': filename, 'content_hash': digest.hexdigest(), 'detailed': detailed,
+            'path': str(target), 'source': filename, 'content_hash': digest.hexdigest(),
+            'detailed': detailed, 'folder_id': folder_id,
         })}
     except Exception:
         target.unlink(missing_ok=True)

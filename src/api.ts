@@ -38,7 +38,7 @@ export async function uploadCompanionBackground(companion: CompanionId, file: Fi
   form.append('file', file);
   return api<CompanionBackground>(`/companions/${companion}/background`, { method: 'POST', body: form });
 }
-export function uploadJob(file: File, detailed: boolean, onProgress: (progress: number) => void): Promise<{ id: string }> {
+export function uploadJob(file: File, detailed: boolean, onProgress: (progress: number) => void, folderId?: string | null): Promise<{ id: string }> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open('POST', baseUrl + '/api/jobs/upload');
@@ -56,6 +56,7 @@ export function uploadJob(file: File, detailed: boolean, onProgress: (progress: 
     const form = new FormData();
     form.append('file', file);
     form.append('detailed', String(detailed));
+    if (folderId) form.append('folder_id', folderId);
     request.send(form);
   });
 }

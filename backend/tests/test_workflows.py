@@ -300,14 +300,16 @@ def test_video_transcript_cache_is_shared_by_content_hash(tmp_path):
 
 
 def test_upload_records_hash_and_detailed_mode(client):
+    folder = client.post('/api/folders', json={'name': '视频课程'}).json()
     with patch.object(service.EXECUTOR, 'submit'):
-        response = client.post('/api/jobs/upload', data={'detailed': 'true'}, files={
+        response = client.post('/api/jobs/upload', data={'detailed': 'true', 'folder_id': folder['id']}, files={
             'file': ('课程.mp4', b'same-video', 'video/mp4'),
         })
     assert response.status_code == 200
     job = store.one('SELECT payload FROM jobs WHERE id=?', (response.json()['id'],))
     payload = json.loads(job['payload'])
     assert payload['detailed'] is True
+    assert payload['folder_id'] == folder['id']
     assert payload['content_hash'] == '658b8b098537a8c88834f50bda20293eec7bf11829555630a323eba6b5d50402'
 
 
