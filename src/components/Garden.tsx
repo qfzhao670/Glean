@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Stats } from '../api';
-import bottle from '../assets/spirit-bottle.png';
+import scroll from '../assets/spirit-scroll.png';
 
 const spiritParticles = [
   { x: '-96px', y: '-52px', r: '-34deg', delay: '0ms' },
@@ -16,7 +16,6 @@ const spiritParticles = [
 ];
 
 export default function Garden({ stats }: { stats: Stats }) {
-  const progress = Math.min(100, Math.max(8, stats.notes * 10 + stats.links * 6));
   const [burst, setBurst] = useState(0);
   const [isAwake, setIsAwake] = useState(false);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -33,9 +32,9 @@ export default function Garden({ stats }: { stats: Stats }) {
   };
 
   return <div className={`garden ${isAwake ? 'is-awake' : ''}`} aria-label={`天地灵气：${stats.notes} 篇笔记，${stats.links} 个知识连接`}>
-    <button className="spirit-bottle-trigger" type="button" onClick={awakenSpirit} aria-label="轻触玉瓶，唤醒知识灵气" title="轻触玉瓶，唤醒灵气">
-      <span className="spirit-bottle-motion" key={`bottle-${burst}`}>
-        <img className="spirit-bottle" src={bottle} alt="" draggable="false"/>
+    <button className="spirit-scroll-trigger" type="button" onClick={awakenSpirit} aria-label="轻触灵卷，唤醒知识灵气" title="轻触灵卷，唤醒灵气">
+      <span className="spirit-scroll-motion" key={`scroll-${burst}`}>
+        <img className="spirit-scroll" src={scroll} alt="" draggable="false"/>
       </span>
       {burst > 0 && <span className="spirit-burst" key={`burst-${burst}`} aria-hidden="true">
         <b className="spirit-ring ring-one"/><b className="spirit-ring ring-two"/>
@@ -47,7 +46,6 @@ export default function Garden({ stats }: { stats: Stats }) {
       </span>}
     </button>
     <div className="spirit-message" aria-live="polite"><strong>{isAwake ? '灵气回应了你' : '天地灵气汇聚中…'}</strong><span>{isAwake ? <>愿今日所学，<br/>都化作生长的力量。</> : <>让知识的灵气，<br/>滋养你的修行。</>}</span></div>
-    <div className="spirit-progress" role="progressbar" aria-label="知识灵气" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><div><i style={{ width: `${progress}%` }}/></div><span>{progress}%</span></div>
     <p>{isAwake ? '灵气已苏醒，再积累一点新知吧。' : '每一次理解，都是在淬炼自己。'}</p>
   </div>;
 }
