@@ -527,11 +527,11 @@ body{background:#edf1ed;color:#31493f}
 .spirit-scroll-trigger:hover .spirit-scroll-motion{transform:translateY(-3px) scale(1.018);filter:brightness(1.035) saturate(1.06)}
 .spirit-scroll-trigger:active .spirit-scroll-motion{transform:translateY(4px) scale(.95)}
 .spirit-scroll-trigger.is-awake .spirit-scroll-motion,.garden.is-awake .spirit-scroll-motion{animation:spirit-awaken .76s cubic-bezier(.2,.8,.25,1) both}
-.spirit-burst{position:absolute;z-index:3;inset:16%;pointer-events:none}
-.spirit-burst>i{position:absolute;left:50%;top:53%;opacity:0;animation:spirit-particle .78s cubic-bezier(.14,.72,.3,1) var(--delay) both}
+.global-click-burst{position:fixed;z-index:10000;width:0;height:0;pointer-events:none}
+.global-click-burst>i{position:absolute;left:0;top:0;opacity:0;animation:spirit-particle .78s cubic-bezier(.14,.72,.3,1) var(--delay) both}
 .spirit-spark{width:8px;height:8px;border-radius:50%;background:#f5ffd1;box-shadow:0 0 7px 2px #a7f591,0 0 17px #62c87e}
 .spirit-leaf{width:11px;height:18px;border-radius:100% 0 100% 0;background:linear-gradient(135deg,#eaff9e,#65ad58);box-shadow:0 0 9px #88d97599}
-.spirit-ring{position:absolute;left:50%;top:53%;width:45%;aspect-ratio:1;border:1px solid #b9ef9c;border-radius:50%;opacity:0;transform:translate(-50%,-50%) scale(.4);box-shadow:0 0 12px #89de8370,inset 0 0 12px #89de8350;animation:spirit-ring .78s ease-out both}
+.spirit-ring{position:absolute;left:0;top:0;width:54px;aspect-ratio:1;border:1px solid #b9ef9c;border-radius:50%;opacity:0;transform:translate(-50%,-50%) scale(.4);box-shadow:0 0 12px #89de8370,inset 0 0 12px #89de8350;animation:spirit-ring .78s ease-out both}
 .spirit-ring.ring-two{animation-delay:.12s}
 .garden:after{content:'';position:absolute;left:16%;right:16%;bottom:54px;height:18px;border-radius:50%;background:radial-gradient(ellipse,#74a56a42 0%,transparent 70%);filter:blur(5px)}
 .spirit-message{position:absolute;z-index:4;right:8%;top:164px;width:172px;padding:17px 20px;border:1px solid #e2e7e1;border-radius:10px;background:#f8faf6aa;backdrop-filter:blur(6px);box-shadow:0 10px 30px #3859430a;transition:border-color .25s ease,box-shadow .25s ease,transform .25s ease}
