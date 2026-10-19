@@ -4,6 +4,7 @@ import {
   Grid2X2, GripVertical, List, Pencil, Plus, Search, Sparkles, Trash2, Upload, X,
 } from 'lucide-react';
 import { api, post, type Folder, type Note } from '../api';
+import { trackCardSpotlight } from '../cardEffects';
 
 export type LibraryFilter = 'all' | 'folders' | 'notes' | 'ai' | 'manual';
 type SortOrder = 'newest' | 'oldest' | 'title';
@@ -272,7 +273,7 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
           const descriptionItems = [...childFolders.map(item => item.name), ...children.map(note => note.title)];
           const description = descriptionItems.length ? descriptionItems.slice(0, 3).join('、') : '把相关笔记或文件夹拖到这里';
           const invalidDestinations = descendantIds(folder.id);
-          return <article key={folder.id} {...folderDropProps(folder)} draggable={!busy} onDragStart={event => beginDrag(event, { type: 'folder', id: folder.id })} onDragEnd={endDrag} className={`folder-card ${dropTarget === folder.id ? 'drop-target' : ''} ${draggingItem?.type === 'folder' && draggingItem.id === folder.id ? 'is-dragging' : ''}`}>
+          return <article key={folder.id} {...folderDropProps(folder)} draggable={!busy} onPointerMove={trackCardSpotlight} onDragStart={event => beginDrag(event, { type: 'folder', id: folder.id })} onDragEnd={endDrag} className={`folder-card ${dropTarget === folder.id ? 'drop-target' : ''} ${draggingItem?.type === 'folder' && draggingItem.id === folder.id ? 'is-dragging' : ''}`}>
             <button className="folder-card-open" aria-label={`打开文件夹「${folder.name}」`} onClick={() => onFolderChange(folder.id)}/>
             <div className="folder-card-tools" onClick={event => event.stopPropagation()} onMouseDown={event => event.stopPropagation()}>
               <label className="note-move folder-card-move" title="移动文件夹"><FolderIcon size={14}/><select aria-label={`移动文件夹「${folder.name}」`} value={folder.parent_id || ''} disabled={!!busy} onChange={event => { moveFolder(folder, event.target.value || null); event.currentTarget.blur(); }}><option value="">笔记根目录</option>{folders.filter(item => !invalidDestinations.has(item.id)).map(item => <option key={item.id} value={item.id}>{item.path}</option>)}</select></label>
@@ -287,7 +288,7 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
             {dropTarget === folder.id && <em>松开以挪入</em>}
           </article>;
         })}
-        {visibleNotes.map(note => <article key={note.id} className={`note-card note-card-flat ${draggingItem?.type === 'note' && draggingItem.id === note.id ? 'is-dragging' : ''}`} role="button" tabIndex={0} draggable={!busy} onDragStart={event => beginDrag(event, { type: 'note', id: note.id })} onDragEnd={endDrag} onClick={() => onOpen(note.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpen(note.id); } }}>
+        {visibleNotes.map(note => <article key={note.id} className={`note-card note-card-flat ${draggingItem?.type === 'note' && draggingItem.id === note.id ? 'is-dragging' : ''}`} role="button" tabIndex={0} draggable={!busy} onPointerMove={trackCardSpotlight} onDragStart={event => beginDrag(event, { type: 'note', id: note.id })} onDragEnd={endDrag} onClick={() => onOpen(note.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpen(note.id); } }}>
           <header>
             <span className="card-grip" title="拖动到文件夹"><GripVertical size={15}/></span>
             <span className="note-file-icon"><FileText size={20}/></span>
@@ -300,7 +301,7 @@ export default function Library({ notes, folders, filter, selectedFolder, onFilt
           <div className="note-file-path" title={note.note_file}>{note.folder_id ? `${folders.find(folder => folder.id === note.folder_id)?.path || note.folder_name} / ` : ''}{note.note_file ? note.note_file.split(/[\\/]/).pop() : '等待保存到仓库'}</div>
           <footer><span>{new Date(note.updated_at).toLocaleDateString('zh-CN')} 更新</span><ArrowUpRight size={16}/></footer>
         </article>)}
-        {(filter !== 'folders' || selectedFolder) && <button className="new-note-tile new-note-tile-flat" onClick={onGenerate} disabled={!!busy}><span><Sparkles size={19}/></span><strong>AI 新建笔记</strong><p>从字幕、视频或已有笔记，<br/>交给 AI 整理。</p></button>}
+        {(filter !== 'folders' || selectedFolder) && <button className="new-note-tile new-note-tile-flat" onPointerMove={trackCardSpotlight} onClick={onGenerate} disabled={!!busy}><span><Sparkles size={19}/></span><strong>AI 新建笔记</strong><p>从字幕、视频或已有笔记，<br/>交给 AI 整理。</p></button>}
       </div> : <div className="library-empty library-empty-flat"><BookOpen size={42} strokeWidth={1}/><h2>{search ? '没有找到匹配的内容' : filter === 'folders' ? '新建一个文件夹，让知识各归其位。' : currentFolder ? `「${currentFolder.name}」还是空的` : '从一份素材，或一页空白开始。'}</h2><p>{currentFolder ? '你可以在这里新建子文件夹或笔记。' : 'AI 生成与手写笔记，都以 Markdown 文件保存在本地仓库。'}</p><div className="library-actions"><button className="button secondary" onClick={filter === 'folders' ? openCreateFolder : create}>{filter === 'folders' ? <FolderPlus size={16}/> : <Plus size={16}/>} {filter === 'folders' ? '新建文件夹' : '写一篇笔记'}</button>{filter !== 'folders' && <button className="button primary" onClick={onGenerate}><Sparkles size={16}/>让 AI 帮我整理</button>}</div></div>}
     </div>
 

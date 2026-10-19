@@ -1588,8 +1588,25 @@ body{background:#edf1ed;color:#31493f}
 .recent-note-grid>button em{transition:transform .25s ease,background .22s ease,color .22s ease}
 .recent-note-grid>button:hover em{transform:translateX(-2px);background:#dfece3;color:#315f49}
 
+/* Library cards share the same tactile spotlight language as the home cards. */
+.folder-card,.note-card.note-card-flat,.new-note-tile.new-note-tile-flat{--spotlight-x:50%;--spotlight-y:50%;position:relative;isolation:isolate;overflow:hidden;transition:transform .25s cubic-bezier(.2,.8,.2,1),border-color .22s ease,box-shadow .25s ease,background .22s ease}
+.folder-card:before,.note-card.note-card-flat:before,.new-note-tile.new-note-tile-flat:before{content:'';position:absolute;z-index:0;inset:0;pointer-events:none;opacity:0;background:radial-gradient(230px circle at var(--spotlight-x) var(--spotlight-y),rgba(71,145,101,.12),transparent 68%);transition:opacity .24s ease}
+.folder-card>*,.note-card.note-card-flat>*,.new-note-tile.new-note-tile-flat>*{z-index:1}
+.folder-card .folder-card-open{z-index:2}
+.folder-card .folder-card-tools{z-index:3}
+.folder-card:hover,.note-card.note-card-flat:hover,.new-note-tile.new-note-tile-flat:hover{transform:translateY(-3px) scale(1.004)}
+.folder-card:hover:before,.note-card.note-card-flat:hover:before,.new-note-tile.new-note-tile-flat:hover:before{opacity:1}
+.folder-card-icon,.note-card-flat>header .note-file-icon,.new-note-tile.new-note-tile-flat>span{transition:transform .3s cubic-bezier(.2,.8,.2,1),border-color .22s ease,box-shadow .22s ease}
+.folder-card:hover .folder-card-icon,.note-card.note-card-flat:hover .note-file-icon,.new-note-tile.new-note-tile-flat:hover>span{transform:translateY(-2px) rotate(-2deg);border-color:#7fa18d;box-shadow:0 5px 14px rgba(31,89,62,.12)}
+.folder-card>strong,.note-card.note-card-flat h2,.new-note-tile.new-note-tile-flat>strong{transition:transform .28s cubic-bezier(.2,.8,.2,1),color .2s ease}
+.folder-card:hover>strong,.note-card.note-card-flat:hover h2,.new-note-tile.new-note-tile-flat:hover>strong{transform:translateX(2px)}
+.note-card-flat>header .tag{transition:transform .25s ease,background .22s ease,color .22s ease}
+.note-card.note-card-flat:hover .tag{transform:translateX(-2px);background:#dfece3;color:#315f49}
+
 :root[data-theme="dark"] .dashboard-card{--spotlight-color:rgba(91,235,145,.14)}
 :root[data-theme="dark"] .recent-note-grid>button:before{background:radial-gradient(190px circle at var(--spotlight-x) var(--spotlight-y),rgba(91,235,145,.14),transparent 68%)}
+:root[data-theme="dark"] .folder-card:before,:root[data-theme="dark"] .note-card.note-card-flat:before,:root[data-theme="dark"] .new-note-tile.new-note-tile-flat:before{background:radial-gradient(230px circle at var(--spotlight-x) var(--spotlight-y),rgba(91,235,145,.14),transparent 68%)}
+:root[data-theme="dark"] .note-card.note-card-flat:hover .tag{background:#20503f;color:#c4f7d2}
 :root[data-theme="dark"] .practice-list>button:hover{background:linear-gradient(90deg,rgba(77,194,120,.09),transparent 72%)}
 :root[data-theme="dark"] .recent-note-grid>button:hover>svg{border-color:#5eb786;box-shadow:0 5px 17px rgba(69,220,126,.13)}
 :root[data-theme="dark"] .recent-note-grid>button:hover em{background:#20503f;color:#c4f7d2}
@@ -1604,11 +1621,11 @@ body{background:#edf1ed;color:#31493f}
 @keyframes quote-change{from{opacity:0;transform:translateY(7px);filter:blur(3px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}
 
 @media(hover:none){
-  .dashboard-card:hover,.recent-note-grid>button:hover{transform:none}
-  .dashboard-card:before,.recent-note-grid>button:before{display:none}
+  .dashboard-card:hover,.recent-note-grid>button:hover,.folder-card:hover,.note-card.note-card-flat:hover,.new-note-tile.new-note-tile-flat:hover{transform:none}
+  .dashboard-card:before,.recent-note-grid>button:before,.folder-card:before,.note-card.note-card-flat:before,.new-note-tile.new-note-tile-flat:before{display:none}
 }
 @media(prefers-reduced-motion:reduce){
   .dashboard.page-enter .home-topline,.dashboard.page-enter .hero-title>span,.dashboard.page-enter .hero-description,.dashboard.page-enter .hero-stats>div,.dashboard.page-enter .hero-cta,.dashboard.page-enter .hero-footnote,.dashboard.page-enter .garden,.dashboard.page-enter .hero-verse,.cultivation-grid>.dashboard-card,.recent-notes>header,.recent-note-grid>button,.inspiration-quote,.practice-list>button.done i,.practice-list>button.done i:after,.practice-list>button.done i svg{animation:none!important}
-  .dashboard-card:hover,.recent-note-grid>button:hover,.practice-trail .heat-cell:hover,.recent-note-grid>button:hover>svg,.recent-note-grid>button:hover strong,.recent-note-grid>button:hover em{transform:none}
+  .dashboard-card:hover,.recent-note-grid>button:hover,.practice-trail .heat-cell:hover,.recent-note-grid>button:hover>svg,.recent-note-grid>button:hover strong,.recent-note-grid>button:hover em,.folder-card:hover,.note-card.note-card-flat:hover,.new-note-tile.new-note-tile-flat:hover,.folder-card:hover .folder-card-icon,.note-card.note-card-flat:hover .note-file-icon,.new-note-tile.new-note-tile-flat:hover>span,.folder-card:hover>strong,.note-card.note-card-flat:hover h2,.new-note-tile.new-note-tile-flat:hover>strong,.note-card.note-card-flat:hover .tag{transform:none}
   .hero-cta:before{display:none}
 }

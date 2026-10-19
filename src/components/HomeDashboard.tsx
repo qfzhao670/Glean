@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUpRight, CalendarDays, Check, ChevronRight, FileText, Lightbulb, Link2, Plus, RefreshCw, Sprout } from 'lucide-react';
 import type { Note, Stats } from '../api';
+import { trackCardSpotlight } from '../cardEffects';
 import ActivityChart from './ActivityChart';
 import Garden from './Garden';
 
@@ -68,13 +69,6 @@ function useAnimatedInteger(value: number, reducedMotion: boolean, duration = 65
   return displayValue;
 }
 
-function trackSpotlight(event: PointerEvent<HTMLElement>) {
-  if (event.pointerType === 'touch') return;
-  const bounds = event.currentTarget.getBoundingClientRect();
-  event.currentTarget.style.setProperty('--spotlight-x', `${event.clientX - bounds.left}px`);
-  event.currentTarget.style.setProperty('--spotlight-y', `${event.clientY - bounds.top}px`);
-}
-
 export default function HomeDashboard({ stats, notes, dateLabel, onCreate, onOpen, onLibrary }: {
   stats: Stats;
   notes: Note[];
@@ -123,19 +117,19 @@ export default function HomeDashboard({ stats, notes, dateLabel, onCreate, onOpe
     </section>
 
     <section className="cultivation-grid">
-      <article className="dashboard-card daily-practice" onPointerMove={trackSpotlight}>
+      <article className="dashboard-card daily-practice" onPointerMove={trackCardSpotlight}>
         <header><h2><CalendarDays size={19}/>今日修行</h2><button title="重置今日进度" onClick={() => { const next = taskLabels.map(() => false); setCompleted(next); localStorage.setItem(storageKey, JSON.stringify(next)); }}>重新开始 <RefreshCw size={13}/></button></header>
         <div className="practice-list">{taskLabels.map((label, index) => <button key={label} className={completed[index] ? 'done' : ''} onClick={() => toggleTask(index)}><i>{completed[index] && <Check size={13}/>}</i><span>{label}</span><time>{completed[index] ? '已完成' : '未开始'}</time></button>)}</div>
         <p>“千里之行，始于足下。” ——《道德经》</p>
       </article>
 
-      <article className="dashboard-card practice-trail" onPointerMove={trackSpotlight}>
+      <article className="dashboard-card practice-trail" onPointerMove={trackCardSpotlight}>
         <header><h2><Sprout size={19}/>修行足迹</h2><span>最近半年⌄</span></header>
         <ActivityChart activity={stats.activity}/>
         <footer><span>“不积跬步，无以至千里。” ——《荀子》</span><strong>{stats.streak}<small> 天连续记录</small></strong></footer>
       </article>
 
-      <article className="dashboard-card inspiration-card" onPointerMove={trackSpotlight}>
+      <article className="dashboard-card inspiration-card" onPointerMove={trackCardSpotlight}>
         <header><h2><Lightbulb size={19}/>灵感一刻</h2><button onClick={() => setQuoteIndex(index => (index + 1) % quotes.length)}>换一条 <RefreshCw size={13}/></button></header>
         <div className="inspiration-quote" key={quoteIndex}>
           <blockquote>“{quotes[quoteIndex][0]}”</blockquote>
@@ -146,7 +140,7 @@ export default function HomeDashboard({ stats, notes, dateLabel, onCreate, onOpe
 
     <section className="recent-notes">
       <header><h2><FileText size={19}/>最近笔记</h2><button onClick={onLibrary}>查看全部 <ArrowUpRight size={14}/></button></header>
-      {recentNotes.length ? <div className="recent-note-grid">{recentNotes.map(note => <button key={note.id} onPointerMove={trackSpotlight} onClick={() => onOpen(note.id)}>
+      {recentNotes.length ? <div className="recent-note-grid">{recentNotes.map(note => <button key={note.id} onPointerMove={trackCardSpotlight} onClick={() => onOpen(note.id)}>
         <FileText size={22}/><span><strong>{note.title}</strong><small>{relativeTime(note.updated_at)}</small></span><em>{note.kind === 'manual' ? '手记' : note.kind === 'curate' ? '阅读' : '知识'}</em>
       </button>)}</div> : <button className="recent-empty" onClick={onCreate}><Plus size={18}/>拾取第一份新知</button>}
     </section>
