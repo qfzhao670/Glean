@@ -1526,3 +1526,89 @@ body{background:#edf1ed;color:#31493f}
   .spirit-sea,.spirit-sword img,.spirit-sword-aura,.spirit-sea-atmosphere i{animation:none}
   .spirit-sword,.spirit-sea-atmosphere{transition:none}
 }
+
+/* Home motion language: restrained ink reveals, jade light and tactile feedback. */
+.dashboard .hero-title{overflow:visible}
+.dashboard .hero-title>span{display:block;width:max-content;max-width:100%;will-change:transform,opacity,filter}
+.dashboard .hero-stats strong{font-variant-numeric:tabular-nums}
+.dashboard.page-enter .home-topline{animation:home-rise .58s cubic-bezier(.22,.8,.24,1) .04s backwards}
+.dashboard.page-enter .hero-title>span:first-child{animation:home-title-reveal .78s cubic-bezier(.2,.78,.22,1) .12s backwards}
+.dashboard.page-enter .hero-title>span:last-child{animation:home-title-reveal .82s cubic-bezier(.2,.78,.22,1) .22s backwards}
+.dashboard.page-enter .hero-description{animation:home-rise .64s cubic-bezier(.22,.8,.24,1) .34s backwards}
+.dashboard.page-enter .hero-stats>div{animation:home-rise .62s cubic-bezier(.22,.8,.24,1) backwards}
+.dashboard.page-enter .hero-stats>div:nth-child(1){animation-delay:.42s}
+.dashboard.page-enter .hero-stats>div:nth-child(2){animation-delay:.49s}
+.dashboard.page-enter .hero-stats>div:nth-child(3){animation-delay:.56s}
+.dashboard.page-enter .hero-cta{animation:home-rise .6s cubic-bezier(.22,.8,.24,1) .63s backwards}
+.dashboard.page-enter .hero-footnote{animation:home-rise .55s cubic-bezier(.22,.8,.24,1) .7s backwards}
+.dashboard.page-enter .garden{animation:home-garden-reveal .9s cubic-bezier(.22,.8,.24,1) .2s backwards}
+.dashboard.page-enter .hero-verse{animation:home-rise .68s cubic-bezier(.22,.8,.24,1) .72s backwards}
+
+.hero-cta{position:relative;overflow:hidden;isolation:isolate}
+.hero-cta>*{position:relative;z-index:1}
+.hero-cta:before{content:'';position:absolute;z-index:0;inset:-45% auto -45% -38%;width:23%;pointer-events:none;transform:translateX(-180%) rotate(15deg);background:linear-gradient(90deg,transparent,rgba(226,255,231,.05),rgba(235,255,238,.27),rgba(226,255,231,.05),transparent);filter:blur(2px);transition:transform .68s cubic-bezier(.22,.8,.24,1)}
+.hero-cta:hover:before{transform:translateX(750%) rotate(15deg)}
+
+.dashboard-card{--spotlight-x:50%;--spotlight-y:50%;--spotlight-color:rgba(59,133,91,.12);position:relative;isolation:isolate;transition:border-color .24s ease,box-shadow .28s ease,transform .28s cubic-bezier(.2,.8,.2,1)}
+.dashboard-card:before{content:'';position:absolute;z-index:0;left:0;top:0;width:100%;height:100%;pointer-events:none;opacity:0;background:radial-gradient(260px circle at var(--spotlight-x) var(--spotlight-y),var(--spotlight-color),transparent 68%);transition:opacity .28s ease}
+.dashboard-card>*{position:relative;z-index:1}
+.dashboard-card:hover{transform:translateY(-3px) scale(1.006)}
+.dashboard-card:hover:before{opacity:1}
+.cultivation-grid>.dashboard-card{animation:home-card-rise .65s cubic-bezier(.22,.8,.24,1) backwards}
+.cultivation-grid>.dashboard-card:nth-child(1){animation-delay:.72s}
+.cultivation-grid>.dashboard-card:nth-child(2){animation-delay:.8s}
+.cultivation-grid>.dashboard-card:nth-child(3){animation-delay:.88s}
+
+.practice-list>button{position:relative;transition:color .22s ease,background .22s ease,padding .22s ease}
+.practice-list>button:hover{padding-left:4px;background:linear-gradient(90deg,rgba(64,130,91,.08),transparent 72%)}
+.practice-list>button i{position:relative;isolation:isolate;transition:background .22s ease,border-color .22s ease,transform .22s cubic-bezier(.2,.9,.3,1.35)}
+.practice-list>button.done i{animation:practice-check-pop .42s cubic-bezier(.2,.9,.28,1.4)}
+.practice-list>button.done i:after{content:'';position:absolute;z-index:-1;inset:-1px;border:1px solid rgba(71,156,103,.58);border-radius:5px;animation:practice-check-ring .55s ease-out both}
+.practice-list>button.done i svg{animation:practice-check-mark .32s cubic-bezier(.2,.9,.25,1.4) both}
+
+.practice-trail .heat-cell{transition:transform .18s ease,filter .18s ease,box-shadow .18s ease}
+.practice-trail .heat-cell:hover{position:relative;z-index:2;transform:scale(1.16);filter:brightness(1.18);box-shadow:0 0 0 2px rgba(113,188,141,.2),0 3px 10px rgba(32,89,61,.18)}
+
+.inspiration-quote{animation:quote-change .42s cubic-bezier(.22,.8,.24,1) both}
+
+.recent-notes>header{animation:home-rise .55s cubic-bezier(.22,.8,.24,1) .92s backwards}
+.recent-note-grid>button{--spotlight-x:50%;--spotlight-y:50%;position:relative;isolation:isolate;overflow:hidden;animation:home-card-rise .55s cubic-bezier(.22,.8,.24,1) backwards;transition:transform .25s cubic-bezier(.2,.8,.2,1),border-color .22s ease,box-shadow .25s ease,background .22s ease}
+.recent-note-grid>button:nth-child(1){animation-delay:.98s}
+.recent-note-grid>button:nth-child(2){animation-delay:1.04s}
+.recent-note-grid>button:nth-child(3){animation-delay:1.1s}
+.recent-note-grid>button:nth-child(4){animation-delay:1.16s}
+.recent-note-grid>button:before{content:'';position:absolute;z-index:0;inset:0;pointer-events:none;opacity:0;background:radial-gradient(190px circle at var(--spotlight-x) var(--spotlight-y),rgba(71,145,101,.12),transparent 68%);transition:opacity .24s ease}
+.recent-note-grid>button>*{position:relative;z-index:1}
+.recent-note-grid>button:hover{transform:translateY(-3px) scale(1.004)}
+.recent-note-grid>button:hover:before{opacity:1}
+.recent-note-grid>button>svg{transition:transform .3s cubic-bezier(.2,.8,.2,1),border-color .22s ease,box-shadow .22s ease}
+.recent-note-grid>button:hover>svg{transform:translateY(-2px) rotate(-2deg);border-color:#7fa18d;box-shadow:0 5px 14px rgba(31,89,62,.12)}
+.recent-note-grid>button strong{display:block;transition:transform .28s cubic-bezier(.2,.8,.2,1),color .2s ease}
+.recent-note-grid>button:hover strong{transform:translateX(2px)}
+.recent-note-grid>button em{transition:transform .25s ease,background .22s ease,color .22s ease}
+.recent-note-grid>button:hover em{transform:translateX(-2px);background:#dfece3;color:#315f49}
+
+:root[data-theme="dark"] .dashboard-card{--spotlight-color:rgba(91,235,145,.14)}
+:root[data-theme="dark"] .recent-note-grid>button:before{background:radial-gradient(190px circle at var(--spotlight-x) var(--spotlight-y),rgba(91,235,145,.14),transparent 68%)}
+:root[data-theme="dark"] .practice-list>button:hover{background:linear-gradient(90deg,rgba(77,194,120,.09),transparent 72%)}
+:root[data-theme="dark"] .recent-note-grid>button:hover>svg{border-color:#5eb786;box-shadow:0 5px 17px rgba(69,220,126,.13)}
+:root[data-theme="dark"] .recent-note-grid>button:hover em{background:#20503f;color:#c4f7d2}
+
+@keyframes home-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes home-title-reveal{from{opacity:0;transform:translateY(15px);filter:blur(8px);clip-path:inset(100% 0 0)}to{opacity:1;transform:translateY(0);filter:blur(0);clip-path:inset(0 0 0)}}
+@keyframes home-garden-reveal{from{opacity:0;transform:translateY(12px) scale(.985);filter:blur(5px)}to{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}}
+@keyframes home-card-rise{from{opacity:0;transform:translateY(13px) scale(.992)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes practice-check-pop{0%{transform:scale(.72)}58%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes practice-check-ring{from{opacity:.75;transform:scale(.72)}to{opacity:0;transform:scale(1.9)}}
+@keyframes practice-check-mark{from{opacity:0;transform:scale(.45) rotate(-12deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes quote-change{from{opacity:0;transform:translateY(7px);filter:blur(3px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}
+
+@media(hover:none){
+  .dashboard-card:hover,.recent-note-grid>button:hover{transform:none}
+  .dashboard-card:before,.recent-note-grid>button:before{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .dashboard.page-enter .home-topline,.dashboard.page-enter .hero-title>span,.dashboard.page-enter .hero-description,.dashboard.page-enter .hero-stats>div,.dashboard.page-enter .hero-cta,.dashboard.page-enter .hero-footnote,.dashboard.page-enter .garden,.dashboard.page-enter .hero-verse,.cultivation-grid>.dashboard-card,.recent-notes>header,.recent-note-grid>button,.inspiration-quote,.practice-list>button.done i,.practice-list>button.done i:after,.practice-list>button.done i svg{animation:none!important}
+  .dashboard-card:hover,.recent-note-grid>button:hover,.practice-trail .heat-cell:hover,.recent-note-grid>button:hover>svg,.recent-note-grid>button:hover strong,.recent-note-grid>button:hover em{transform:none}
+  .hero-cta:before{display:none}
+}
