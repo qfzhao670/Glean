@@ -33,7 +33,7 @@
 .dashboard .activity-label{margin-top:8px}
 .activity-calendar{position:relative;margin-top:12px}
 .activity-months{display:grid;margin-left:22px;gap:4px;font-size:10px;color:#7d8c73;min-height:16px}
-.activity-months span{white-space:nowrap;overflow:visible}
+.activity-months span{min-width:0;overflow:hidden;text-align:center;white-space:nowrap}
 .activity-tooltip{position:absolute;z-index:2;transform:translate(-50%,-100%);padding:5px 9px;border:1px solid #d6e0d7;border-radius:6px;background:#fbfcf9f2;box-shadow:0 5px 14px #24423112;color:#53675c;font-size:10px;line-height:1;white-space:nowrap;pointer-events:none}
 .activity-tooltip strong{color:#244e3c;font:600 12px Georgia,serif}
 .dashboard .activity-chart{margin-top:6px}
@@ -265,7 +265,7 @@
 .folder-card-delete{color:#a87868}
 .folder-card-delete:hover,.folder-card-delete:focus-visible{background:#f3e7e2;color:#914f42}
 .card-grip{position:absolute;left:10px;top:24px;display:flex;color:#a4aea8;cursor:grab}
-.folder-card-icon{height:43px;display:flex;align-items:center;color:#17563d;margin-left:18px}
+.folder-card-icon{width:43px;height:43px;display:flex;align-items:center;color:#17563d;margin-left:18px}
 .folder-card>strong{margin:9px 0 0 18px;font:16px/1.4 var(--serif);font-weight:500;color:#173f31;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .folder-card>p{height:36px;margin:7px 0 0 18px;font-size:10px;line-height:1.8;color:#8a958f;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .folder-card>footer{margin-top:auto;padding:13px 0 0 18px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #edf0ed;color:#8c9b92;font-size:9px}
@@ -302,7 +302,7 @@
 @media(max-width:680px){.library.library-flat{padding:28px 18px}.library-flat .library-heading{min-height:0}.content-tabs{width:100%;overflow-x:auto;padding-bottom:3px}.content-tabs>button{flex:none}.library-view-controls{flex-wrap:wrap}.library-flat .search-field{flex-basis:100%;order:-1}.sort-select{flex:1}.sort-select select{width:100%}.content-grid,.content-grid.list-layout{grid-template-columns:1fr}.content-grid.list-layout .folder-card,.content-grid.list-layout .note-card-flat{display:flex;min-height:190px}.content-grid.list-layout .folder-card{align-items:stretch}.content-grid.list-layout .folder-card>strong,.content-grid.list-layout .folder-card>p,.content-grid.list-layout .folder-card>footer{margin-left:18px}.content-grid.list-layout .note-card-flat h2{margin:13px 0 7px}.content-grid.list-layout .note-card-flat>p{height:41px}.content-grid.list-layout .note-card-flat .note-file-path{display:block;margin-top:8px}.content-grid.list-layout .note-card-flat>footer{margin-top:auto;padding-top:12px;border-top:1px solid #e8ece1}}
 
 /* The garden already fills the viewport; vertical translation briefly creates page overflow. */
-.dashboard.page-enter{animation:dashboard-enter .35s ease-out}
+.dashboard.home-launch-intro{animation:dashboard-enter .35s ease-out}
 @keyframes dashboard-enter{from{opacity:0}to{opacity:1}}
 
 /* Obsidian-like note workspace: note browser, closable tabs, then the document. */
@@ -712,6 +712,12 @@ body{background:#edf1ed;color:#31493f}
   .inspiration-card blockquote{margin:12px 8px 0;font-size:13px;line-height:1.65}.inspiration-card cite{margin-top:6px;font-size:10px}
   .recent-notes>header{height:22px}.recent-note-grid>button,.recent-empty{height:48px}.recent-note-grid>button{padding:7px 10px}.recent-note-grid>button>svg{width:29px;height:29px}.recent-note-grid>button>span{gap:3px}.recent-note-grid em{padding:3px 5px;font-size:8px}
 }
+
+.app-shell.home-shell{height:100vh;overflow:hidden}
+.home-shell>.main-shell{height:100vh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.home-shell>.main-shell>.topbar,.home-shell>.main-shell>.connection-error{flex-shrink:0}
+.home-shell>.main-shell>main{flex:1;min-height:0;overflow:hidden}
+.home-shell .dashboard{height:100%!important;min-height:0}
 
 /* Personal-note RAG companion. The background is a clean project asset so the
    interface can evolve independently from the reference mockup. */
@@ -1531,18 +1537,18 @@ body{background:#edf1ed;color:#31493f}
 .dashboard .hero-title{overflow:visible}
 .dashboard .hero-title>span{display:block;width:max-content;max-width:100%;will-change:transform,opacity,filter}
 .dashboard .hero-stats strong{font-variant-numeric:tabular-nums}
-.dashboard.page-enter .home-topline{animation:home-rise .58s cubic-bezier(.22,.8,.24,1) .04s backwards}
-.dashboard.page-enter .hero-title>span:first-child{animation:home-title-reveal .78s cubic-bezier(.2,.78,.22,1) .12s backwards}
-.dashboard.page-enter .hero-title>span:last-child{animation:home-title-reveal .82s cubic-bezier(.2,.78,.22,1) .22s backwards}
-.dashboard.page-enter .hero-description{animation:home-rise .64s cubic-bezier(.22,.8,.24,1) .34s backwards}
-.dashboard.page-enter .hero-stats>div{animation:home-rise .62s cubic-bezier(.22,.8,.24,1) backwards}
-.dashboard.page-enter .hero-stats>div:nth-child(1){animation-delay:.42s}
-.dashboard.page-enter .hero-stats>div:nth-child(2){animation-delay:.49s}
-.dashboard.page-enter .hero-stats>div:nth-child(3){animation-delay:.56s}
-.dashboard.page-enter .hero-cta{animation:home-rise .6s cubic-bezier(.22,.8,.24,1) .63s backwards}
-.dashboard.page-enter .hero-footnote{animation:home-rise .55s cubic-bezier(.22,.8,.24,1) .7s backwards}
-.dashboard.page-enter .garden{animation:home-garden-reveal .9s cubic-bezier(.22,.8,.24,1) .2s backwards}
-.dashboard.page-enter .hero-verse{animation:home-rise .68s cubic-bezier(.22,.8,.24,1) .72s backwards}
+.dashboard.home-launch-intro .home-topline{animation:home-rise .58s cubic-bezier(.22,.8,.24,1) .04s backwards}
+.dashboard.home-launch-intro .hero-title>span:first-child{animation:home-title-reveal .78s cubic-bezier(.2,.78,.22,1) .12s backwards}
+.dashboard.home-launch-intro .hero-title>span:last-child{animation:home-title-reveal .82s cubic-bezier(.2,.78,.22,1) .22s backwards}
+.dashboard.home-launch-intro .hero-description{animation:home-rise .64s cubic-bezier(.22,.8,.24,1) .34s backwards}
+.dashboard.home-launch-intro .hero-stats>div{animation:home-rise .62s cubic-bezier(.22,.8,.24,1) backwards}
+.dashboard.home-launch-intro .hero-stats>div:nth-child(1){animation-delay:.42s}
+.dashboard.home-launch-intro .hero-stats>div:nth-child(2){animation-delay:.49s}
+.dashboard.home-launch-intro .hero-stats>div:nth-child(3){animation-delay:.56s}
+.dashboard.home-launch-intro .hero-cta{animation:home-rise .6s cubic-bezier(.22,.8,.24,1) .63s backwards}
+.dashboard.home-launch-intro .hero-footnote{animation:home-rise .55s cubic-bezier(.22,.8,.24,1) .7s backwards}
+.dashboard.home-launch-intro .garden{animation:home-garden-reveal .9s cubic-bezier(.22,.8,.24,1) .2s backwards}
+.dashboard.home-launch-intro .hero-verse{animation:home-rise .68s cubic-bezier(.22,.8,.24,1) .72s backwards}
 
 .hero-cta{position:relative;overflow:hidden;isolation:isolate}
 .hero-cta>*{position:relative;z-index:1}
@@ -1554,10 +1560,10 @@ body{background:#edf1ed;color:#31493f}
 .dashboard-card>*{position:relative;z-index:1}
 .dashboard-card:hover{transform:translateY(-3px) scale(1.006)}
 .dashboard-card:hover:before{opacity:1}
-.cultivation-grid>.dashboard-card{animation:home-card-rise .65s cubic-bezier(.22,.8,.24,1) backwards}
-.cultivation-grid>.dashboard-card:nth-child(1){animation-delay:.72s}
-.cultivation-grid>.dashboard-card:nth-child(2){animation-delay:.8s}
-.cultivation-grid>.dashboard-card:nth-child(3){animation-delay:.88s}
+.dashboard.home-launch-intro .cultivation-grid>.dashboard-card{animation:home-card-rise .65s cubic-bezier(.22,.8,.24,1) backwards}
+.dashboard.home-launch-intro .cultivation-grid>.dashboard-card:nth-child(1){animation-delay:.72s}
+.dashboard.home-launch-intro .cultivation-grid>.dashboard-card:nth-child(2){animation-delay:.8s}
+.dashboard.home-launch-intro .cultivation-grid>.dashboard-card:nth-child(3){animation-delay:.88s}
 
 .practice-list>button{position:relative;transition:color .22s ease,background .22s ease,padding .22s ease}
 .practice-list>button:hover{padding-left:4px;background:linear-gradient(90deg,rgba(64,130,91,.08),transparent 72%)}
@@ -1571,12 +1577,13 @@ body{background:#edf1ed;color:#31493f}
 
 .inspiration-quote{animation:quote-change .42s cubic-bezier(.22,.8,.24,1) both}
 
-.recent-notes>header{animation:home-rise .55s cubic-bezier(.22,.8,.24,1) .92s backwards}
-.recent-note-grid>button{--spotlight-x:50%;--spotlight-y:50%;position:relative;isolation:isolate;overflow:hidden;animation:home-card-rise .55s cubic-bezier(.22,.8,.24,1) backwards;transition:transform .25s cubic-bezier(.2,.8,.2,1),border-color .22s ease,box-shadow .25s ease,background .22s ease}
-.recent-note-grid>button:nth-child(1){animation-delay:.98s}
-.recent-note-grid>button:nth-child(2){animation-delay:1.04s}
-.recent-note-grid>button:nth-child(3){animation-delay:1.1s}
-.recent-note-grid>button:nth-child(4){animation-delay:1.16s}
+.dashboard.home-launch-intro .recent-notes>header{animation:home-rise .55s cubic-bezier(.22,.8,.24,1) .92s backwards}
+.recent-note-grid>button{--spotlight-x:50%;--spotlight-y:50%;position:relative;isolation:isolate;overflow:hidden;transition:transform .25s cubic-bezier(.2,.8,.2,1),border-color .22s ease,box-shadow .25s ease,background .22s ease}
+.dashboard.home-launch-intro .recent-note-grid>button{animation:home-card-rise .55s cubic-bezier(.22,.8,.24,1) backwards}
+.dashboard.home-launch-intro .recent-note-grid>button:nth-child(1){animation-delay:.98s}
+.dashboard.home-launch-intro .recent-note-grid>button:nth-child(2){animation-delay:1.04s}
+.dashboard.home-launch-intro .recent-note-grid>button:nth-child(3){animation-delay:1.1s}
+.dashboard.home-launch-intro .recent-note-grid>button:nth-child(4){animation-delay:1.16s}
 .recent-note-grid>button:before{content:'';position:absolute;z-index:0;inset:0;pointer-events:none;opacity:0;background:radial-gradient(190px circle at var(--spotlight-x) var(--spotlight-y),rgba(71,145,101,.12),transparent 68%);transition:opacity .24s ease}
 .recent-note-grid>button>*{position:relative;z-index:1}
 .recent-note-grid>button:hover{transform:translateY(-3px) scale(1.004)}
@@ -1597,7 +1604,8 @@ body{background:#edf1ed;color:#31493f}
 .folder-card:hover,.note-card.note-card-flat:hover,.new-note-tile.new-note-tile-flat:hover{transform:translateY(-3px) scale(1.004)}
 .folder-card:hover:before,.note-card.note-card-flat:hover:before,.new-note-tile.new-note-tile-flat:hover:before{opacity:1}
 .folder-card-icon,.note-card-flat>header .note-file-icon,.new-note-tile.new-note-tile-flat>span{transition:transform .3s cubic-bezier(.2,.8,.2,1),border-color .22s ease,box-shadow .22s ease}
-.folder-card:hover .folder-card-icon,.note-card.note-card-flat:hover .note-file-icon,.new-note-tile.new-note-tile-flat:hover>span{transform:translateY(-2px) rotate(-2deg);border-color:#7fa18d;box-shadow:0 5px 14px rgba(31,89,62,.12)}
+.folder-card:hover .folder-card-icon{transform:translateY(-2px) rotate(-2deg)}
+.note-card.note-card-flat:hover .note-file-icon,.new-note-tile.new-note-tile-flat:hover>span{transform:translateY(-2px) rotate(-2deg);border-color:#7fa18d;box-shadow:0 5px 14px rgba(31,89,62,.12)}
 .folder-card>strong,.note-card.note-card-flat h2,.new-note-tile.new-note-tile-flat>strong{transition:transform .28s cubic-bezier(.2,.8,.2,1),color .2s ease}
 .folder-card:hover>strong,.note-card.note-card-flat:hover h2,.new-note-tile.new-note-tile-flat:hover>strong{transform:translateX(2px)}
 .note-card-flat>header .tag{transition:transform .25s ease,background .22s ease,color .22s ease}
@@ -1625,7 +1633,7 @@ body{background:#edf1ed;color:#31493f}
   .dashboard-card:before,.recent-note-grid>button:before,.folder-card:before,.note-card.note-card-flat:before,.new-note-tile.new-note-tile-flat:before{display:none}
 }
 @media(prefers-reduced-motion:reduce){
-  .dashboard.page-enter .home-topline,.dashboard.page-enter .hero-title>span,.dashboard.page-enter .hero-description,.dashboard.page-enter .hero-stats>div,.dashboard.page-enter .hero-cta,.dashboard.page-enter .hero-footnote,.dashboard.page-enter .garden,.dashboard.page-enter .hero-verse,.cultivation-grid>.dashboard-card,.recent-notes>header,.recent-note-grid>button,.inspiration-quote,.practice-list>button.done i,.practice-list>button.done i:after,.practice-list>button.done i svg{animation:none!important}
+  .dashboard.home-launch-intro .home-topline,.dashboard.home-launch-intro .hero-title>span,.dashboard.home-launch-intro .hero-description,.dashboard.home-launch-intro .hero-stats>div,.dashboard.home-launch-intro .hero-cta,.dashboard.home-launch-intro .hero-footnote,.dashboard.home-launch-intro .garden,.dashboard.home-launch-intro .hero-verse,.dashboard.home-launch-intro .cultivation-grid>.dashboard-card,.dashboard.home-launch-intro .recent-notes>header,.dashboard.home-launch-intro .recent-note-grid>button,.inspiration-quote,.practice-list>button.done i,.practice-list>button.done i:after,.practice-list>button.done i svg{animation:none!important}
   .dashboard-card:hover,.recent-note-grid>button:hover,.practice-trail .heat-cell:hover,.recent-note-grid>button:hover>svg,.recent-note-grid>button:hover strong,.recent-note-grid>button:hover em,.folder-card:hover,.note-card.note-card-flat:hover,.new-note-tile.new-note-tile-flat:hover,.folder-card:hover .folder-card-icon,.note-card.note-card-flat:hover .note-file-icon,.new-note-tile.new-note-tile-flat:hover>span,.folder-card:hover>strong,.note-card.note-card-flat:hover h2,.new-note-tile.new-note-tile-flat:hover>strong,.note-card.note-card-flat:hover .tag{transform:none}
   .hero-cta:before{display:none}
 }

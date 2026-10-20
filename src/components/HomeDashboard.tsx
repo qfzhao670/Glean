@@ -69,14 +69,17 @@ function useAnimatedInteger(value: number, reducedMotion: boolean, duration = 65
   return displayValue;
 }
 
-export default function HomeDashboard({ stats, notes, dateLabel, onCreate, onOpen, onLibrary }: {
+export default function HomeDashboard({ stats, notes, dateLabel, playIntro, onIntroPlayed, onCreate, onOpen, onLibrary }: {
   stats: Stats;
   notes: Note[];
   dateLabel: string;
+  playIntro: boolean;
+  onIntroPlayed: () => void;
   onCreate: () => void;
   onOpen: (id: string) => void;
   onLibrary: () => void;
 }) {
+  const [playLaunchIntro] = useState(playIntro);
   const storageKey = `glean-daily-practice-${new Date().toLocaleDateString('sv-SE')}`;
   const [completed, setCompleted] = useState<boolean[]>(() => {
     try {
@@ -92,13 +95,17 @@ export default function HomeDashboard({ stats, notes, dateLabel, onCreate, onOpe
   const animatedLinks = useAnimatedInteger(stats.links, reducedMotion, 720);
   const animatedDays = useAnimatedInteger(stats.active_days, reducedMotion, 780);
 
+  useEffect(() => {
+    if (playLaunchIntro) onIntroPlayed();
+  }, [onIntroPlayed, playLaunchIntro]);
+
   const toggleTask = (index: number) => {
     const next = completed.map((value, taskIndex) => taskIndex === index ? !value : value);
     setCompleted(next);
     localStorage.setItem(storageKey, JSON.stringify(next));
   };
 
-  return <div className="dashboard page-enter">
+  return <div className={`dashboard page-enter ${playLaunchIntro ? 'home-launch-intro' : ''}`}>
     <div className="home-topline"><span><Sprout size={16}/>你好，探索者。</span><time>{dateLabel}</time></div>
     <section className="hero">
       <div className="hero-copy">
