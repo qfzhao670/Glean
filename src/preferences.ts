@@ -1,5 +1,6 @@
 export type PreferenceKey =
   | 'glean-theme'
+  | 'glean-spirit-layout-seed'
   | 'glean-companion-theme'
   | `glean-companion-background-${string}`;
 

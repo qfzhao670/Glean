@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { BookOpen, Moon, Shuffle, Sparkles, Sun } from 'lucide-react';
 import type { Note } from '../api';
-import { getSpiritSwordCount, NOTES_PER_SPIRIT_SWORD } from '../spiritSwords';
+import { getPreference, setPreference } from '../preferences';
+import { getSpiritSwordCount, NOTES_PER_SPIRIT_SWORD, parseSpiritLayoutSeed } from '../spiritSwords';
 import sword01 from '../assets/spirit-sea/sword-01.png';
 import sword02 from '../assets/spirit-sea/sword-02.png';
 import sword03 from '../assets/spirit-sea/sword-03.png';
@@ -97,7 +98,9 @@ export default function SpiritSea({ notes, colorMode, onColorModeToggle, onOpenN
   const sceneRef = useRef<HTMLElement>(null);
   const [parallax, setParallax] = useState({ x: 0, y: 0 });
   const [hoveredSwordId, setHoveredSwordId] = useState<string | null>(null);
-  const [layoutSeed, setLayoutSeed] = useState(0);
+  const [layoutSeed, setLayoutSeed] = useState(() => (
+    parseSpiritLayoutSeed(getPreference('glean-spirit-layout-seed'))
+  ));
   const swordCount = getSpiritSwordCount(notes.length);
   const swords = useMemo(() => (
     notes.slice(0, swordCount).map(note => placeSword(note, layoutSeed)).sort((a, b) => a.depth - b.depth)
@@ -115,7 +118,9 @@ export default function SpiritSea({ notes, colorMode, onColorModeToggle, onOpenN
   function reshapeSwords() {
     setHoveredSwordId(null);
     setParallax({ x: 0, y: 0 });
-    setLayoutSeed(currentSeed => currentSeed + 1);
+    const nextSeed = layoutSeed === Number.MAX_SAFE_INTEGER ? 1 : layoutSeed + 1;
+    setPreference('glean-spirit-layout-seed', String(nextSeed));
+    setLayoutSeed(nextSeed);
   }
 
   return <section

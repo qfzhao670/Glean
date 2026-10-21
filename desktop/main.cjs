@@ -13,6 +13,7 @@ const companionIds = new Set(['chuntang', 'yuexia', 'feiyan', 'yunqu', 'bilan', 
 
 function validPreference(key, value) {
   if (key === 'glean-theme') return value === 'light' || value === 'dark';
+  if (key === 'glean-spirit-layout-seed') return /^\d+$/.test(value) && Number.isSafeInteger(Number(value));
   if (key === 'glean-companion-theme') return companionIds.has(value);
   if (/^glean-companion-background-(chuntang|yuexia|feiyan|yunqu|bilan|chayan)$/.test(key)) return value === 'default' || /^[a-f0-9]{32}$/.test(value);
   return false;

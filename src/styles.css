@@ -499,7 +499,7 @@ body{background:#edf1ed;color:#31493f}
 .profile{width:35px;height:35px;font-size:15px;background:#edf2eb}
 
 .dashboard{position:relative;display:block;max-width:none;min-height:calc(100vh - 78px);height:auto!important;padding:32px 40px 28px;overflow:hidden;background:linear-gradient(180deg,#fbfcf9 0%,#f9faf7 100%)}
-.dashboard:before{content:'';position:absolute;z-index:0;left:0;right:0;top:0;height:535px;background:url('./assets/ink-landscape.png') center bottom/cover no-repeat;opacity:.46;mix-blend-mode:multiply;pointer-events:none}
+.dashboard:before{content:'';position:absolute;z-index:0;left:0;right:0;top:0;height:100%;background:url('./assets/ink-landscape.png') center bottom/cover no-repeat;opacity:.46;mix-blend-mode:multiply;pointer-events:none}
 .dashboard>*{position:relative;z-index:1}
 .home-topline{height:28px;font-size:13px;color:#526d60}
 .home-topline>span{gap:10px}
