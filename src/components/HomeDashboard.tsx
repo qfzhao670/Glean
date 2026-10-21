@@ -4,6 +4,7 @@ import type { Note, Stats } from '../api';
 import { trackCardSpotlight } from '../cardEffects';
 import ActivityChart from './ActivityChart';
 import Garden from './Garden';
+import type { BookOrigin } from './BookOpeningOverlay';
 
 const quotes = [
   ['人外有人，天外有天，修行之路，贵在坚持。', '韩立'],
@@ -69,7 +70,7 @@ function useAnimatedInteger(value: number, reducedMotion: boolean, duration = 65
   return displayValue;
 }
 
-export default function HomeDashboard({ stats, notes, dateLabel, playIntro, onIntroPlayed, onCreate, onOpen, onLibrary }: {
+export default function HomeDashboard({ stats, notes, dateLabel, playIntro, onIntroPlayed, onCreate, onOpen, onLibrary, onOpenBook }: {
   stats: Stats;
   notes: Note[];
   dateLabel: string;
@@ -78,6 +79,7 @@ export default function HomeDashboard({ stats, notes, dateLabel, playIntro, onIn
   onCreate: () => void;
   onOpen: (id: string) => void;
   onLibrary: () => void;
+  onOpenBook: (origin: BookOrigin) => void;
 }) {
   const [playLaunchIntro] = useState(playIntro);
   const storageKey = `glean-daily-practice-${new Date().toLocaleDateString('sv-SE')}`;
@@ -119,7 +121,7 @@ export default function HomeDashboard({ stats, notes, dateLabel, playIntro, onIn
         <button className="hero-cta" onClick={onCreate}><Plus size={18}/>拾取今天的新知<ChevronRight size={18}/></button>
         <div className="hero-footnote"><span className="thin-line"/>每一份积累，都是向上的力量。</div>
       </div>
-      <Garden stats={stats}/>
+      <Garden stats={stats} onOpenBook={onOpenBook}/>
       <aside className="hero-verse"><strong>道阻且长，<br/>行则将至。</strong><span>——《凡人修仙传》</span></aside>
     </section>
 

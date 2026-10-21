@@ -1640,3 +1640,88 @@ body{background:#edf1ed;color:#31493f}
   .dashboard-card:hover,.recent-note-grid>button:hover,.practice-trail .heat-cell:hover,.recent-note-grid>button:hover>svg,.recent-note-grid>button:hover strong,.recent-note-grid>button:hover em,.folder-card:hover,.note-card.note-card-flat:hover,.new-note-tile.new-note-tile-flat:hover,.folder-card:hover .folder-card-icon,.note-card.note-card-flat:hover .note-file-icon,.new-note-tile.new-note-tile-flat:hover>span,.folder-card:hover>strong,.note-card.note-card-flat:hover h2,.new-note-tile.new-note-tile-flat:hover>strong,.note-card.note-card-flat:hover .tag{transform:none}
   .hero-cta:before{display:none}
 }
+
+/* The home spirit book becomes a full-window, two-page verse book. */
+.book-opening-overlay{position:fixed;z-index:20000;inset:0;overflow:hidden;isolation:isolate;color:#243b31;background:radial-gradient(circle at 54% 43%,rgba(142,168,104,.3),transparent 39%),linear-gradient(145deg,#091a16 0%,#17352b 46%,#081713 100%)}
+.phase-opening.book-opening-overlay{animation:book-overlay-out .76s ease-in reverse both}
+.phase-closing.book-opening-overlay{animation:book-overlay-out .76s ease-in both}
+.book-opening-overlay:before{content:'';position:absolute;z-index:-1;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(251,239,182,.04) 1px,transparent 1px),linear-gradient(rgba(251,239,182,.035) 1px,transparent 1px);background-size:54px 54px;mask-image:radial-gradient(circle at center,#000,transparent 72%);opacity:.6}
+.book-opening-overlay:after{content:'';position:absolute;z-index:30;inset:0;pointer-events:none;box-shadow:inset 0 0 150px rgba(0,10,7,.48)}
+.book-opening-atmosphere{position:absolute;z-index:0;inset:-15%;pointer-events:none;filter:blur(34px)}
+.book-opening-atmosphere i{position:absolute;width:38%;height:23%;border-radius:50%;background:radial-gradient(ellipse,rgba(142,218,145,.18),transparent 70%);animation:book-mist 9s ease-in-out infinite alternate}
+.book-opening-atmosphere i:nth-child(1){left:7%;top:28%;transform:rotate(-13deg)}
+.book-opening-atmosphere i:nth-child(2){right:8%;top:37%;animation-delay:-3s;transform:rotate(9deg)}
+.book-opening-atmosphere i:nth-child(3){left:32%;bottom:2%;width:48%;animation-delay:-6s}
+.book-origin-echo{position:fixed;z-index:12;left:var(--book-origin-left);top:var(--book-origin-top);width:var(--book-origin-width);height:var(--book-origin-height);object-fit:contain;pointer-events:none;user-select:none;filter:drop-shadow(0 28px 50px rgba(1,12,7,.45)) drop-shadow(0 0 25px rgba(151,230,132,.25));animation:book-origin-expand .42s cubic-bezier(.18,.84,.22,1) both;transition:opacity .48s ease,filter .48s ease}
+.phase-opening .book-origin-echo{animation:book-origin-return-v2 .76s cubic-bezier(.48,0,.72,.24) reverse both}
+.phase-opened .book-origin-echo{display:none}
+.phase-closing .book-origin-echo{display:block;opacity:0;animation:book-origin-return-v2 .76s cubic-bezier(.48,0,.72,.24) both}
+.book-opening-close{position:absolute;z-index:45;right:26px;top:24px;width:42px;height:42px;display:grid;place-items:center;border:1px solid rgba(226,240,218,.25);border-radius:50%;background:rgba(8,25,20,.46);color:#dbe9dd;opacity:0;transform:translateY(-8px);backdrop-filter:blur(12px);box-shadow:0 8px 25px rgba(0,10,7,.18);transition:background .2s,color .2s,transform .2s,opacity .3s}
+.phase-opening .book-opening-close{animation:book-control-in .3s .46s ease-out both}.phase-opened .book-opening-close{opacity:1;transform:translateY(0)}
+.book-opening-close:hover{background:rgba(220,235,209,.14);color:#fff;transform:rotate(3deg)}
+.book-opening-close:focus-visible{outline-color:#d4e7b9;outline-offset:4px}
+.book-opening-scene{position:absolute;z-index:10;left:50%;top:50%;width:min(1440px,94vw,132vh);height:auto;aspect-ratio:3/2;opacity:1;transform:translate(-50%,-50%);pointer-events:none}
+.phase-opened .book-opening-scene{pointer-events:auto}
+.phase-closing .book-opening-close{opacity:0;pointer-events:none}
+.book-opening-hint{position:absolute;z-index:32;left:50%;bottom:clamp(15px,3vh,31px);transform:translateX(-50%);font:10px var(--serif);letter-spacing:3px;color:rgba(222,236,219,.62);opacity:0;white-space:nowrap}
+.phase-opening .book-opening-hint{animation:book-hint-in .18s .58s ease-out both}.phase-opened .book-opening-hint{opacity:1}.phase-closing .book-opening-hint{opacity:0;transition:opacity .18s}
+.app-shell.book-focus{user-select:none}
+
+@keyframes book-hint-in{from{opacity:0;transform:translate(-50%,6px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes book-control-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes book-mist{from{transform:translate3d(-2%,0,0) rotate(-4deg);opacity:.45}to{transform:translate3d(8%,-10%,0) rotate(5deg);opacity:.9}}
+
+/* Image-matched book transition: the opened state is derived from spirit-scroll.png. */
+.book-open-stage{position:absolute;inset:0;isolation:isolate;filter:drop-shadow(0 38px 42px rgba(0,7,4,.48))}
+.book-open-stage:after{content:'';position:absolute;z-index:-1;left:14%;right:11%;bottom:3%;height:12%;border-radius:50%;background:radial-gradient(ellipse,rgba(0,7,4,.72),transparent 70%);filter:blur(16px)}
+.book-open-copy{position:absolute;z-index:2;color:#506b5b;text-align:center;opacity:0;pointer-events:none;text-shadow:0 1px rgba(255,255,255,.45)}
+.book-open-copy small{display:block;font:clamp(6px,.52vw,9px) Georgia,serif;letter-spacing:clamp(1px,.18vw,3px);color:#85917e}
+.book-open-copy span{display:block;margin-top:8px;font:500 clamp(13px,1.25vw,21px) var(--serif);letter-spacing:clamp(2px,.3vw,5px)}
+.book-open-copy-left{left:27%;top:22%;width:22%;transform:rotate(1.3deg)}
+.book-open-copy-left i{display:block;width:78%;height:1px;margin:clamp(17px,2.3vh,30px) auto 0;background:linear-gradient(90deg,transparent,rgba(67,99,77,.22),transparent)}
+.book-open-copy-left i:nth-of-type(2){width:66%}.book-open-copy-left i:nth-of-type(3){width:72%}
+.book-open-copy-right{left:55%;top:21%;width:24%;transform:rotate(-1.4deg)}
+.book-open-copy-right p{margin-top:clamp(36px,6.5vh,74px);font:500 clamp(13px,1.3vw,21px)/2 var(--serif);letter-spacing:2px;color:#496557}
+.phase-opening .book-open-copy{animation:book-copy-in .14s .62s ease-out both}.phase-opened .book-open-copy{opacity:.78}.phase-closing .book-open-copy{opacity:0;transition:opacity .14s}
+
+@keyframes book-copy-in{from{opacity:0;filter:blur(3px)}to{opacity:.78;filter:blur(0)}}
+@keyframes book-overlay-out{0%,76%{opacity:1}to{opacity:0}}
+
+@media(max-width:760px){
+  .book-opening-scene{width:min(96vw,135vh)}
+  .book-open-copy-left,.book-open-copy-right{display:none}
+}
+/* Four matched raster states create a continuous, physically legible opening motion. */
+.book-frame-stack{position:absolute;z-index:1;inset:0}
+.book-sequence-frame{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;user-select:none;pointer-events:none;transform-origin:50% 53%;will-change:opacity,transform,filter}
+.phase-opening .frame-opening-30{animation:book-frame-30-open-solid .235s .05s ease-out both}
+.phase-opening .frame-opening-62{animation:book-frame-62-open-solid .251s .21s ease-out both}
+.phase-opening .frame-opening-86{animation:book-frame-86-open-solid .31s .39s ease-out both}
+.phase-opening .frame-open-topdown{animation:book-frame-final-open-solid .22s .54s ease-out both}
+.phase-opened .frame-open-topdown{opacity:1;transform:none}
+.phase-closing .frame-open-topdown{animation:book-frame-final-close .22s ease-in both}
+.phase-closing .frame-opening-86{animation:book-frame-86-close .25s .12s ease-in-out both}
+.phase-closing .frame-opening-62{animation:book-frame-62-close .26s .29s ease-in-out both}
+.phase-closing .frame-opening-30{animation:book-frame-30-close .25s .46s ease-in both}
+.book-open-copy-left{left:23%;top:18%;width:24%;transform:none}
+.book-open-copy-right{left:59%;top:18%;width:24%;transform:none}
+.book-open-copy-right p{margin-top:clamp(42px,7vh,80px)}
+
+/* Opening frames overlap opaquely: the outgoing frame is removed only after
+   the incoming frame covers it, so the dark stage can never flash through. */
+@keyframes book-frame-30-open-solid{0%{opacity:0;transform:scale(.78) rotate(-5deg);filter:blur(3px)}19%,99%{opacity:1;filter:blur(0)}100%{opacity:0;transform:scale(.93) rotate(-1deg)}}
+@keyframes book-frame-62-open-solid{0%{opacity:0;transform:scale(.91) rotate(-1deg);filter:blur(2px)}25%,99%{opacity:1;filter:blur(0)}100%{opacity:0;transform:scale(.98)}}
+@keyframes book-frame-86-open-solid{0%{opacity:0;transform:scale(.97);filter:blur(1px)}20%,99%{opacity:1;filter:blur(0)}100%{opacity:0;transform:scale(1)}}
+@keyframes book-frame-final-open-solid{0%{opacity:0;transform:scale(.99);filter:blur(1px)}65%,100%{opacity:1;transform:scale(1);filter:blur(0)}}
+@keyframes book-frame-final-close{0%,28%{opacity:1}to{opacity:0;transform:scale(.99)}}
+@keyframes book-frame-86-close{0%{opacity:0;transform:scale(1)}18%,72%{opacity:1}100%{opacity:0;transform:scale(.97)}}
+@keyframes book-frame-62-close{0%{opacity:0;transform:scale(.98)}18%,72%{opacity:1}100%{opacity:0;transform:scale(.91) rotate(-1deg)}}
+@keyframes book-frame-30-close{0%{opacity:0;transform:scale(.93) rotate(-1deg)}18%,70%{opacity:1}100%{opacity:0;transform:scale(.78) rotate(-5deg);filter:blur(3px)}}
+@keyframes book-origin-return-v2{0%,55%{left:21vw;top:12vh;width:58vw;height:76vh;opacity:0;transform:rotate(-2deg)}72%{opacity:.88}100%{left:var(--book-origin-left);top:var(--book-origin-top);width:var(--book-origin-width);height:var(--book-origin-height);opacity:1;transform:rotate(0)}}
+
+@media(prefers-reduced-motion:reduce){
+  .book-opening-overlay,.book-opening-atmosphere i,.book-origin-echo,.book-opening-scene,.book-opening-hint,.book-open-copy{animation:none!important;transition:none!important}
+  .book-origin-echo{display:none}.book-opening-scene{opacity:1;transform:translate(-50%,-50%);pointer-events:auto}.book-opening-close,.book-opening-hint,.book-open-copy{opacity:1;transform:none}
+  .book-sequence-frame{animation:none!important;opacity:0;transform:none;filter:none}
+  .frame-open-topdown{opacity:1}
+}

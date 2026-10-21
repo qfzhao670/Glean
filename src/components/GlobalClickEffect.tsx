@@ -26,6 +26,7 @@ export default function GlobalClickEffect() {
 
     const showBurst = (event: PointerEvent) => {
       if (!event.isPrimary || event.button !== 0) return;
+      if (event.target instanceof Element && event.target.closest('.book-opening-overlay')) return;
 
       const burst = document.createElement('span');
       burst.className = 'global-click-burst';
