@@ -62,6 +62,7 @@ function placeSword(note: Note, layoutSeed = 0): SwordPlacement {
   const identity = note.id || note.title;
   const identitySeed = hashString(identity);
   const identityRandom = seededRandom(identitySeed);
+  const motionRandom = seededRandom(hashString(`${identity}:motion`));
   const model = swordModels[Math.floor(identityRandom() * swordModels.length)];
   const random = layoutSeed === 0
     ? identityRandom
@@ -83,8 +84,8 @@ function placeSword(note: Note, layoutSeed = 0): SwordPlacement {
     height,
     depth,
     tilt: (random() - .5) * (2.4 - depth * 1.2),
-    drift: 7 + random() * 5,
-    delay: -random() * 10,
+    drift: 7 + motionRandom() * 5,
+    delay: -motionRandom() * 10,
   };
 }
 
@@ -103,7 +104,8 @@ export default function SpiritSea({ notes, colorMode, onColorModeToggle, onOpenN
   ));
   const swordCount = getSpiritSwordCount(notes.length);
   const swords = useMemo(() => (
-    notes.slice(0, swordCount).map(note => placeSword(note, layoutSeed)).sort((a, b) => a.depth - b.depth)
+    // Keep keyed swords in a stable DOM and stacking order while their layout animates.
+    notes.slice(0, swordCount).map(note => placeSword(note, layoutSeed))
   ), [layoutSeed, notes, swordCount]);
 
   function moveScene(event: PointerEvent<HTMLElement>) {
@@ -117,7 +119,6 @@ export default function SpiritSea({ notes, colorMode, onColorModeToggle, onOpenN
 
   function reshapeSwords() {
     setHoveredSwordId(null);
-    setParallax({ x: 0, y: 0 });
     const nextSeed = layoutSeed === Number.MAX_SAFE_INTEGER ? 1 : layoutSeed + 1;
     setPreference('glean-spirit-layout-seed', String(nextSeed));
     setLayoutSeed(nextSeed);
@@ -167,7 +168,7 @@ export default function SpiritSea({ notes, colorMode, onColorModeToggle, onOpenN
         '--sword-tilt': `${sword.tilt}deg`,
         '--sword-drift': `${sword.drift}s`,
         '--sword-delay': `${sword.delay}s`,
-        '--sword-z': Math.round(sword.depth * 100) + 10,
+        '--sword-z': index + 10,
         '--sword-index': index,
         '--sword-opacity': .62 + sword.depth * .38,
         '--sword-blur': `${(1 - sword.depth) * .72}px`,
