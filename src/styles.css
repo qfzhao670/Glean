@@ -1465,7 +1465,7 @@ body{background:#edf1ed;color:#31493f}
   :root[data-theme="dark"] .dashboard:before{background-position:60% top}
 }
 
-/* 精神识海：每篇笔记以稳定的随机种子化作一柄灵剑。 */
+/* 精神识海：每十篇笔记凝成一柄灵剑，最多展示十五柄。 */
 .sidebar nav>button.spirit-nav svg:first-child{color:#789a4d}
 .spirit-shell{height:100vh;overflow:hidden;background:#10160f}
 .spirit-shell>.main-shell{height:100vh;min-height:0;display:flex;flex-direction:column;background:#10160f}
@@ -1483,6 +1483,8 @@ body{background:#edf1ed;color:#31493f}
 .spirit-sea-atmosphere i:nth-child(1){left:-12%;top:31%;transform:rotate(5deg)}
 .spirit-sea-atmosphere i:nth-child(2){right:-14%;top:51%;animation-delay:-6s;animation-duration:19s;transform:rotate(-7deg)}
 .spirit-sea-atmosphere i:nth-child(3){left:20%;bottom:2%;width:78%;opacity:.35;animation-delay:-11s;animation-duration:22s}
+.spirit-reshape-button{position:absolute;z-index:160;right:84px;top:30px;height:42px;display:flex;align-items:center;gap:7px;padding:0 14px;border:1px solid rgba(238,240,188,.3);border-radius:21px;background:rgba(17,29,19,.67);box-shadow:0 8px 30px rgba(7,12,7,.3);backdrop-filter:blur(12px);color:#e4e6b9;font:9px var(--serif);letter-spacing:1px;transition:transform .18s,background .18s,box-shadow .18s,color .18s}
+.spirit-reshape-button:hover{transform:translateY(-1px);background:rgba(38,53,31,.86);box-shadow:0 9px 32px rgba(7,12,7,.42);color:#ffffd4}.spirit-reshape-button:active svg{transform:rotate(90deg)}.spirit-reshape-button svg{transition:transform .3s ease}
 .spirit-theme-toggle{position:absolute;z-index:160;right:30px;top:30px;width:42px;height:42px;display:grid;place-items:center;border:1px solid rgba(238,240,188,.3);border-radius:50%;background:rgba(17,29,19,.67);box-shadow:0 8px 30px rgba(7,12,7,.3);backdrop-filter:blur(12px);color:#e4e6b9;transition:transform .18s,background .18s,box-shadow .18s,color .18s}
 .spirit-theme-toggle:hover{transform:translateY(-1px);background:rgba(38,53,31,.86);box-shadow:0 9px 32px rgba(7,12,7,.42);color:#ffffd4}
 
@@ -1495,7 +1497,7 @@ body{background:#edf1ed;color:#31493f}
 .spirit-sea-heading>div{display:flex;align-items:center;gap:11px;margin-top:17px;padding-top:14px;border-top:1px solid rgba(235,236,188,.15)}
 .spirit-sea-heading>div strong{color:#e8db72;font:30px/1 Georgia,serif}.spirit-sea-heading>div span{color:rgba(222,226,190,.62);font-size:8px;line-height:1.65;letter-spacing:.5px}
 
-.spirit-sword{position:absolute;z-index:var(--sword-z);left:var(--sword-x);top:var(--sword-y);height:var(--sword-height);aspect-ratio:2/3;padding:0;overflow:visible;opacity:var(--sword-opacity);pointer-events:none;transform:translate(calc(-50% + var(--sword-shift-x)),calc(-100% + var(--sword-shift-y))) rotate(var(--sword-tilt));transform-origin:50% 100%;transition:transform .65s cubic-bezier(.2,.75,.2,1),opacity .35s,filter .35s;filter:blur(var(--sword-blur));will-change:transform}
+.spirit-sword{position:absolute;z-index:var(--sword-z);left:var(--sword-x);top:var(--sword-y);height:var(--sword-height);aspect-ratio:2/3;padding:0;overflow:visible;opacity:var(--sword-opacity);pointer-events:none;transform:translate(calc(-50% + var(--sword-shift-x)),calc(-100% + var(--sword-shift-y))) rotate(var(--sword-tilt));transform-origin:50% 100%;transition:left .8s cubic-bezier(.2,.75,.2,1),top .8s cubic-bezier(.2,.75,.2,1),height .8s cubic-bezier(.2,.75,.2,1),transform .65s cubic-bezier(.2,.75,.2,1),opacity .35s,filter .35s;filter:blur(var(--sword-blur));will-change:left,top,height,transform}
 .spirit-sword.is-hovered,.spirit-sword:focus-visible{z-index:140;opacity:1;filter:blur(0);transform:translate(calc(-50% + var(--sword-shift-x)),calc(-102% + var(--sword-shift-y))) rotate(0deg) scale(1.045);outline:none}
 .spirit-sword:focus-visible img{filter:drop-shadow(0 0 8px rgba(238,255,143,.95)) drop-shadow(0 0 22px rgba(99,255,102,.62))}
 .spirit-sword img{position:relative;z-index:2;display:block;width:100%;height:100%;object-fit:contain;user-select:none;filter:drop-shadow(0 4px 7px rgba(3,10,4,.48)) drop-shadow(0 0 8px rgba(190,234,67,.13));animation:spirit-sword-breathe var(--sword-drift) ease-in-out var(--sword-delay) infinite;transition:filter .3s}
@@ -1522,6 +1524,7 @@ body{background:#edf1ed;color:#31493f}
 }
 @media(max-width:680px){
   .spirit-sea{min-height:430px;background-position:56% center}
+  .spirit-reshape-button{right:69px;top:17px;width:40px;height:40px;padding:0;justify-content:center}.spirit-reshape-button span{display:none}
   .spirit-theme-toggle{right:17px;top:17px;width:40px;height:40px}
   .spirit-sea-heading{left:14px;top:15px;padding:16px 18px;transform:scale(.8)}
   .spirit-sea-heading h1{font-size:28px}

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
-import { BookOpen, Moon, Sparkles, Sun } from 'lucide-react';
+import { BookOpen, Moon, Shuffle, Sparkles, Sun } from 'lucide-react';
 import type { Note } from '../api';
+import { getSpiritSwordCount, NOTES_PER_SPIRIT_SWORD } from '../spiritSwords';
 import sword01 from '../assets/spirit-sea/sword-01.png';
 import sword02 from '../assets/spirit-sea/sword-02.png';
 import sword03 from '../assets/spirit-sea/sword-03.png';
@@ -56,10 +57,14 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function placeSword(note: Note): SwordPlacement {
-  const seed = hashString(note.id || note.title);
-  const random = seededRandom(seed);
-  const model = swordModels[Math.floor(random() * swordModels.length)];
+function placeSword(note: Note, layoutSeed = 0): SwordPlacement {
+  const identity = note.id || note.title;
+  const identitySeed = hashString(identity);
+  const identityRandom = seededRandom(identitySeed);
+  const model = swordModels[Math.floor(identityRandom() * swordModels.length)];
+  const random = layoutSeed === 0
+    ? identityRandom
+    : seededRandom(hashString(`${identity}:${layoutSeed}`));
   const depth = random();
   const x = 5 + random() * 90;
   const rawBaseY = 14 + depth * 90 + (random() - .5) * 6;
@@ -92,7 +97,11 @@ export default function SpiritSea({ notes, colorMode, onColorModeToggle, onOpenN
   const sceneRef = useRef<HTMLElement>(null);
   const [parallax, setParallax] = useState({ x: 0, y: 0 });
   const [hoveredSwordId, setHoveredSwordId] = useState<string | null>(null);
-  const swords = useMemo(() => notes.map(placeSword).sort((a, b) => a.depth - b.depth), [notes]);
+  const [layoutSeed, setLayoutSeed] = useState(0);
+  const swordCount = getSpiritSwordCount(notes.length);
+  const swords = useMemo(() => (
+    notes.slice(0, swordCount).map(note => placeSword(note, layoutSeed)).sort((a, b) => a.depth - b.depth)
+  ), [layoutSeed, notes, swordCount]);
 
   function moveScene(event: PointerEvent<HTMLElement>) {
     const bounds = sceneRef.current?.getBoundingClientRect();
@@ -101,6 +110,12 @@ export default function SpiritSea({ notes, colorMode, onColorModeToggle, onOpenN
       x: (event.clientX - bounds.left) / bounds.width - .5,
       y: (event.clientY - bounds.top) / bounds.height - .5,
     });
+  }
+
+  function reshapeSwords() {
+    setHoveredSwordId(null);
+    setParallax({ x: 0, y: 0 });
+    setLayoutSeed(currentSeed => currentSeed + 1);
   }
 
   return <section
@@ -115,6 +130,14 @@ export default function SpiritSea({ notes, colorMode, onColorModeToggle, onOpenN
     style={{ '--sea-shift-x': parallax.x, '--sea-shift-y': parallax.y } as CSSProperties}
   >
     <div className="spirit-sea-atmosphere" aria-hidden="true"><i/><i/><i/></div>
+    {!!swords.length && <button
+      className="spirit-reshape-button"
+      onClick={reshapeSwords}
+      title="随机重塑飞剑分布"
+      aria-label="随机重塑飞剑分布"
+    >
+      <Shuffle size={15}/><span>重塑剑阵</span>
+    </button>}
     <button
       className="spirit-theme-toggle"
       onClick={onColorModeToggle}
@@ -126,8 +149,8 @@ export default function SpiritSea({ notes, colorMode, onColorModeToggle, onOpenN
     <header className="spirit-sea-heading">
       <span className="spirit-sea-kicker"><Sparkles size={13}/> MIND SEA</span>
       <h1>精神识海</h1>
-      <p>一念凝成一剑，所记皆有锋芒</p>
-      <div><strong>{notes.length}</strong><span>篇笔记<br/>已化灵剑</span></div>
+      <p>十念凝成一剑，所记皆有锋芒</p>
+      <div><strong>{swordCount}</strong><span>柄飞剑<br/>{notes.length} 篇笔记凝成</span></div>
     </header>
 
     {swords.map((sword, index) => {
@@ -171,11 +194,13 @@ export default function SpiritSea({ notes, colorMode, onColorModeToggle, onOpenN
       </button>;
     })}
 
-    {!notes.length && <div className="spirit-sea-empty">
+    {!swords.length && <div className="spirit-sea-empty">
       <span><Sparkles size={24}/></span>
       <h2>识海尚静，灵剑未生</h2>
-      <p>每写下一篇笔记，这里便会凝出一柄飞剑。</p>
+      <p>{notes.length
+        ? `再积累 ${NOTES_PER_SPIRIT_SWORD - notes.length} 篇笔记，便会凝出第一柄飞剑。`
+        : `每积累 ${NOTES_PER_SPIRIT_SWORD} 篇笔记，这里便会凝出一柄飞剑。`}</p>
     </div>}
-    <footer className="spirit-sea-legend"><i/><span>每一柄剑，都是一篇正在生长的笔记</span><i/></footer>
+    <footer className="spirit-sea-legend"><i/><span>每十篇笔记凝成一柄飞剑，至多十五柄</span><i/></footer>
   </section>;
 }
