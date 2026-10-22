@@ -73,6 +73,9 @@ def init():
           PRIMARY KEY (note_id, target));
         CREATE TABLE IF NOT EXISTS folders (
           id TEXT PRIMARY KEY, name TEXT, created_at TEXT, parent_id TEXT DEFAULT NULL);
+        CREATE TABLE IF NOT EXISTS book_entries (
+          id TEXT PRIMARY KEY, note_id TEXT, note_title TEXT, content TEXT, created_at TEXT);
+        CREATE INDEX IF NOT EXISTS book_entries_created_at ON book_entries(created_at);
         ''')
         if 'note_file' not in [r['name'] for r in c.execute('PRAGMA table_info(notes)')]:
             c.execute("ALTER TABLE notes ADD COLUMN note_file TEXT DEFAULT ''")
@@ -280,6 +283,29 @@ def create_note(title, content, transcript, source, kind, duration=0, folder_id=
         path = repository.write(str(destination), title, content)
         c.execute('UPDATE notes SET note_file=? WHERE id=?', (path, note_id))
     return note_id
+
+
+def create_book_entries(note_id, note_title, contents):
+    """Persist a reviewed batch with one shared, server-authored timestamp."""
+    timestamp = now()
+    entries = [
+        {'id': uid(), 'note_id': note_id, 'note_title': note_title,
+         'content': content, 'created_at': timestamp}
+        for content in contents
+    ]
+    with db() as c:
+        c.executemany(
+            'INSERT INTO book_entries (id,note_id,note_title,content,created_at) VALUES (?,?,?,?,?)',
+            [(entry['id'], entry['note_id'], entry['note_title'], entry['content'], entry['created_at'])
+             for entry in entries],
+        )
+    return entries
+
+
+def list_book_entries():
+    # rowid preserves the user's review order for entries saved in one batch,
+    # whose server-authored timestamps are intentionally identical.
+    return rows('SELECT id,note_id,note_title,content,created_at FROM book_entries ORDER BY created_at,rowid')
 
 
 def create_folder(name, parent_id=None):

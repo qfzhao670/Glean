@@ -355,6 +355,6 @@ export default function App() {
       onCreated={id => { setModal(null); notify('素材已收到，知识开始生长'); watchJob(id); }}
     />}
     {toast && <div className="toast" role="status"><Check size={16}/>{toast}{toastNote && <button className="toast-open" onClick={() => { openNote(toastNote); setToast(''); setShowJobs(false); }}>查看笔记</button>}<button aria-label="关闭提示" onClick={() => setToast('')}><X size={14}/></button></div>}
-    {bookOrigin && <BookOpeningOverlay origin={bookOrigin} onClose={() => setBookOrigin(null)}/>}
+    {bookOrigin && <BookOpeningOverlay origin={bookOrigin} notes={notes} onClose={() => setBookOrigin(null)}/>}
   </div>;
 }

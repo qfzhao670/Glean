@@ -73,8 +73,8 @@ def test_rag_stream_returns_sources_and_persists_conversation(client):
 
 def test_rag_stream_has_no_token_cap_and_continues_provider_truncation():
     calls = []
-    def fake_stream(messages, _config, max_tokens=5000):
-        calls.append((messages, max_tokens))
+    def fake_stream(messages, _config):
+        calls.append(messages)
         if len(calls) == 1:
             yield '第一部分。[1]'
             raise ai.OutputLimitError('服务端截断')
@@ -84,8 +84,8 @@ def test_rag_stream_has_no_token_cap_and_continues_provider_truncation():
     with patch.object(ai, 'completion_stream', side_effect=fake_stream):
         events = list(ai.rag_chat_stream(notes, [], 'Agent 有哪些组成？', store.settings(True)))
     assert ''.join(item['content'] for item in events if item['type'] == 'delta') == '第一部分。[1]第二部分。[1]'
-    assert [maximum for _, maximum in calls] == [None, None]
-    assert calls[1][0][-1]['content'].startswith('刚才的回答被模型服务截断')
+    assert len(calls) == 2
+    assert calls[1][-1]['content'].startswith('刚才的回答被模型服务截断')
 
 
 def test_ambiguous_patch_and_duplicate_are_rejected():
@@ -273,7 +273,7 @@ def test_detailed_generation_reads_full_source_for_outline_and_each_semantic_sec
         assert f'必须保留的细节 {index}' in result
     # The outline call and every chapter-writing call receive the full transcript.
     assert all(text in call.args[0][1]['content'] for call in llm.call_args_list)
-    assert llm.call_args_list[0].args[2] is None
+    assert len(llm.call_args_list[0].args) == 2
     assert store.one('SELECT progress,stage FROM jobs WHERE id=?', ('detail-job',)) is None
 
 
@@ -449,18 +449,23 @@ def test_local_transcript_groups_short_segments_into_20_to_30_seconds():
     ]
 
 
-def test_length_finish_reason_is_not_saved():
-    response = httpx.Response(200, json={'choices': [{'finish_reason': 'length', 'message': {'content': '# 不完整内容'}}]})
-    with patch.object(httpx.Client, 'post', return_value=response) as post:
-        with pytest.raises(ValueError, match='长度上限'):
-            ai.completion([{'role': 'user', 'content': 'generate'}], {**store.settings(True), 'model': 'test'})
-    assert 'max_tokens' not in post.call_args.kwargs['json']
+def test_length_finish_reason_continues_without_setting_an_output_cap():
+    responses = [
+        httpx.Response(200, json={'choices': [{'finish_reason': 'length', 'message': {'content': '# 不完整'}}]}),
+        httpx.Response(200, json={'choices': [{'finish_reason': 'stop', 'message': {'content': '内容'}}]}),
+    ]
+    with patch.object(httpx.Client, 'post', side_effect=responses) as post:
+        result = ai.completion([{'role': 'user', 'content': 'generate'}], {**store.settings(True), 'model': 'test'})
+    assert result == '# 不完整内容'
+    assert post.call_count == 2
+    assert all('max_tokens' not in call.kwargs['json'] for call in post.call_args_list)
+    assert post.call_args_list[1].kwargs['json']['messages'][-1]['content'].startswith('刚才的输出被模型服务截断')
 
 
 def test_agent_stream_continues_after_provider_output_limit_without_setting_max_tokens():
     calls = []
-    def fake_stream(messages, _config, max_tokens=5000):
-        calls.append((messages, max_tokens))
+    def fake_stream(messages, _config):
+        calls.append(messages)
         if len(calls) == 1:
             yield '第一部分。'
             raise ai.OutputLimitError('服务端截断')
@@ -472,5 +477,5 @@ def test_agent_stream_continues_after_provider_output_limit_without_setting_max_
         ], store.settings(True), deltas.append, lambda: None)
     assert result == '第一部分。第二部分。'
     assert deltas == ['第一部分。', '第二部分。']
-    assert [maximum for _, maximum in calls] == [None, None]
-    assert calls[1][0][-1]['content'].startswith('刚才的输出被模型服务截断')
+    assert len(calls) == 2
+    assert calls[1][-1]['content'].startswith('刚才的输出被模型服务截断')

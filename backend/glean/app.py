@@ -212,6 +212,28 @@ class NoteInput(BaseModel):
     content: str = Field(default='', max_length=2_000_000)
 
 
+class BookSuggestionInput(BaseModel):
+    note_id: str = Field(min_length=1, max_length=64)
+
+
+class BookEntryInput(BookSuggestionInput):
+    contents: list[str] = Field(min_length=1, max_length=10)
+
+    @field_validator('contents')
+    @classmethod
+    def valid_contents(cls, values):
+        result = []
+        for value in values:
+            value = value.strip()
+            if not value or len(value) > 600:
+                raise ValueError('每条知识段落须为 1–600 个字符。')
+            if value not in result:
+                result.append(value)
+        if not result:
+            raise ValueError('请至少选择一条知识段落。')
+        return result
+
+
 class FolderInput(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     parent_id: str | None = Field(default=None, max_length=64)
@@ -280,7 +302,7 @@ def choose_repository(value: RepositoryInput):
 
 @app.post('/api/settings/test')
 def test_connection():
-    ai.completion([{'role': 'user', 'content': 'Reply with OK.'}], max_tokens=32)
+    ai.completion([{'role': 'user', 'content': 'Reply with OK.'}])
     return {'ok': True}
 
 
@@ -333,6 +355,26 @@ def notes():
         note['excerpt'] = re.sub(r'[#*>\[\]=`]', '', body).strip().replace('\n', ' ')[:130]
         note['links'] = len(store.links(content))
     return values
+
+
+@app.get('/api/book/entries')
+def book_entries():
+    return store.list_book_entries()
+
+
+@app.post('/api/book/suggestions')
+def book_suggestions(value: BookSuggestionInput):
+    selected = get_note(value.note_id)
+    if not selected['content'].strip():
+        raise ValueError('这篇笔记还没有可提炼的内容。')
+    return {'note_id': selected['id'], 'note_title': selected['title'],
+            'suggestions': ai.extract_high_density_knowledge(selected['content'], selected['title'])}
+
+
+@app.post('/api/book/entries')
+def save_book_entries(value: BookEntryInput):
+    selected = get_note(value.note_id)
+    return {'entries': store.create_book_entries(selected['id'], selected['title'], value.contents)}
 
 
 @app.get('/api/folders')
