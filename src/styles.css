@@ -1660,7 +1660,7 @@ body{background:#edf1ed;color:#31493f}
 .phase-opening .book-opening-close{animation:book-control-in .3s .46s ease-out both}.phase-opened .book-opening-close{opacity:1;transform:translateY(0)}
 .book-opening-close:hover{background:rgba(220,235,209,.14);color:#fff;transform:rotate(3deg)}
 .book-opening-close:focus-visible{outline-color:#d4e7b9;outline-offset:4px}
-.book-opening-scene{position:absolute;z-index:10;left:50%;top:50%;width:min(1440px,94vw,132vh);height:auto;aspect-ratio:3/2;opacity:1;transform:translate(-50%,-50%);pointer-events:none}
+.book-opening-scene{position:absolute;z-index:10;left:50%;top:50%;width:min(1600px,98vw,144vh);height:auto;aspect-ratio:3/2;opacity:1;transform:translate(-50%,-50%);pointer-events:none;touch-action:none}
 .phase-opened .book-opening-scene{pointer-events:auto}
 .phase-closing .book-opening-close{opacity:0;pointer-events:none}
 .book-opening-hint{position:absolute;z-index:32;left:50%;bottom:clamp(15px,3vh,31px);transform:translateX(-50%);font:10px var(--serif);letter-spacing:3px;color:rgba(222,236,219,.62);opacity:0;white-space:nowrap}
@@ -1671,25 +1671,52 @@ body{background:#edf1ed;color:#31493f}
 @keyframes book-control-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes book-mist{from{transform:translate3d(-2%,0,0) rotate(-4deg);opacity:.45}to{transform:translate3d(8%,-10%,0) rotate(5deg);opacity:.9}}
 
-/* Image-matched book transition: the opened state is derived from spirit-scroll.png. */
+/* Image-matched book transition into the clean, fully opened page spread. */
 .book-open-stage{position:absolute;inset:0;isolation:isolate;filter:drop-shadow(0 38px 42px rgba(0,7,4,.48))}
 .book-open-stage:after{content:'';position:absolute;z-index:-1;left:14%;right:11%;bottom:3%;height:12%;border-radius:50%;background:radial-gradient(ellipse,rgba(0,7,4,.72),transparent 70%);filter:blur(16px)}
-.book-open-copy{position:absolute;z-index:2;color:#506b5b;text-align:center;opacity:0;pointer-events:none;text-shadow:0 1px rgba(255,255,255,.45)}
-.book-open-copy small{display:block;font:clamp(6px,.52vw,9px) Georgia,serif;letter-spacing:clamp(1px,.18vw,3px);color:#85917e}
-.book-open-copy span{display:block;margin-top:8px;font:500 clamp(13px,1.25vw,21px) var(--serif);letter-spacing:clamp(2px,.3vw,5px)}
-.book-open-copy-left{left:27%;top:22%;width:22%;transform:rotate(1.3deg)}
-.book-open-copy-left i{display:block;width:78%;height:1px;margin:clamp(17px,2.3vh,30px) auto 0;background:linear-gradient(90deg,transparent,rgba(67,99,77,.22),transparent)}
-.book-open-copy-left i:nth-of-type(2){width:66%}.book-open-copy-left i:nth-of-type(3){width:72%}
-.book-open-copy-right{left:55%;top:21%;width:24%;transform:rotate(-1.4deg)}
-.book-open-copy-right p{margin-top:clamp(36px,6.5vh,74px);font:500 clamp(13px,1.3vw,21px)/2 var(--serif);letter-spacing:2px;color:#496557}
-.phase-opening .book-open-copy{animation:book-copy-in .14s .62s ease-out both}.phase-opened .book-open-copy{opacity:.78}.phase-closing .book-open-copy{opacity:0;transition:opacity .14s}
+.book-page-system{position:absolute;z-index:2;left:17.4%;right:8.5%;top:11.4%;bottom:22.1%;perspective:1800px;perspective-origin:50% 46%;opacity:0;pointer-events:none}
+.phase-opening .book-page-system{animation:book-pages-in .18s .62s ease-out both}.phase-opened .book-page-system{opacity:1}.phase-closing .book-page-system{opacity:0;transition:opacity .14s}
+.book-page-static{position:absolute;top:0;bottom:0;width:49.25%;overflow:hidden;isolation:isolate;background:linear-gradient(90deg,rgba(209,190,151,.08),rgba(255,255,255,.04));border-radius:2% 1.2% 2.5% 2%}
+.book-page-static:before{content:'';position:absolute;z-index:0;inset:0;background-image:var(--book-paper-texture);background-size:cover;opacity:.17;mix-blend-mode:multiply}
+.book-page-static-left{left:0;box-shadow:inset -22px 0 30px -28px rgba(67,48,27,.35)}
+.book-page-static-right{right:0;box-shadow:inset 22px 0 30px -28px rgba(67,48,27,.35)}
+.book-page-content{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;padding:10% 10% 7%;color:#4c6355;text-align:center;text-shadow:0 1px rgba(255,255,255,.5);user-select:none}
+.book-page-left{padding-left:13%;padding-right:8%}.book-page-right{padding-left:8%;padding-right:13%}
+.book-page-content small{font:clamp(6px,.56vw,9px) Georgia,serif;letter-spacing:clamp(1px,.2vw,3px);color:#899488}
+.book-page-content h2{margin:clamp(8px,1.2vh,15px) 0 0;font:500 clamp(14px,1.35vw,22px) var(--serif);letter-spacing:clamp(2px,.3vw,5px);color:#456050}
+.book-page-content blockquote{max-width:82%;margin:auto 0;font:500 clamp(12px,1.18vw,19px)/2.05 var(--serif);letter-spacing:clamp(1px,.16vw,2.5px);color:#4b6556}
+.book-page-content footer{width:78%;display:flex;align-items:center;justify-content:space-between;padding-top:clamp(8px,1.4vh,16px);border-top:1px solid rgba(72,98,82,.14);font:clamp(7px,.62vw,10px) var(--serif);letter-spacing:1px;color:#78897e}
+.book-page-content footer b{font:500 clamp(9px,.75vw,12px) Georgia,serif;color:#879488}
+.book-turn-leaf{position:absolute;z-index:8;top:0;bottom:0;width:49.25%;transform-style:preserve-3d;will-change:transform}
+.book-turn-next{right:.75%;transform-origin:0 50%;animation:book-page-turn-next .78s cubic-bezier(.42,.02,.18,1) both}
+.book-turn-previous{left:.75%;transform-origin:100% 50%;animation:book-page-turn-previous .78s cubic-bezier(.42,.02,.18,1) both}
+.book-page-face{position:absolute;inset:0;overflow:hidden;border-radius:1.5% 2% 2.5% 1.5%;background-color:#f5ecd9;background-image:linear-gradient(90deg,rgba(121,92,49,.13),transparent 13%,rgba(255,255,255,.14) 76%,rgba(91,63,34,.08)),var(--book-paper-texture);background-size:auto,cover;background-blend-mode:multiply;backface-visibility:hidden;-webkit-backface-visibility:hidden;box-shadow:0 3px 9px rgba(30,19,9,.12)}
+.book-page-face-back{transform:rotateY(180deg);background-image:linear-gradient(270deg,rgba(121,92,49,.13),transparent 13%,rgba(255,255,255,.14) 76%,rgba(91,63,34,.08)),var(--book-paper-texture)}
+.book-page-face:after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(38,25,12,.22),transparent 10%,transparent 78%,rgba(255,255,255,.24));opacity:.18}
+.book-turn-leaf .book-page-face:after{animation:book-page-fold-shade .78s cubic-bezier(.42,.02,.18,1) both}
+.book-page-control{position:absolute;z-index:24;top:50%;width:46px;height:46px;display:grid;place-items:center;border:1px solid rgba(226,240,218,.24);border-radius:50%;background:rgba(8,25,20,.5);color:#dbe9dd;opacity:0;transform:translateY(-50%);backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,10,7,.2);transition:background .2s,color .2s,opacity .2s,transform .2s}
+.book-page-control-previous{left:1.3%}.book-page-control-next{right:1.3%}
+.phase-opened .book-page-control{opacity:1}.phase-closing .book-page-control{opacity:0;pointer-events:none}
+.book-page-control:hover:not(:disabled){background:rgba(220,235,209,.15);color:#fff;transform:translateY(-50%) scale(1.06)}
+.book-page-control:disabled{opacity:.14;cursor:default}
+.book-page-control:focus-visible{outline-color:#d4e7b9;outline-offset:4px}
+.book-page-pagination{position:absolute;z-index:34;left:50%;bottom:clamp(38px,5.8vh,62px);display:flex;gap:8px;opacity:0;transform:translateX(-50%);pointer-events:none}
+.book-page-pagination i{width:5px;height:5px;border-radius:50%;background:rgba(220,237,220,.28);box-shadow:0 0 0 1px rgba(220,237,220,.08);transition:width .25s,background .25s,border-radius .25s}
+.book-page-pagination i.active{width:20px;border-radius:4px;background:rgba(220,237,220,.75)}
+.phase-opening .book-page-pagination{animation:book-control-in .3s .66s ease-out both}.phase-opened .book-page-pagination{opacity:1}.phase-closing .book-page-pagination{opacity:0;transition:opacity .14s}
 
-@keyframes book-copy-in{from{opacity:0;filter:blur(3px)}to{opacity:.78;filter:blur(0)}}
+@keyframes book-pages-in{from{opacity:0;filter:blur(3px)}to{opacity:1;filter:blur(0)}}
+@keyframes book-page-turn-next{0%{transform:rotateY(0)}52%{transform:rotateY(-96deg)}100%{transform:rotateY(-180deg)}}
+@keyframes book-page-turn-previous{0%{transform:rotateY(0)}52%{transform:rotateY(96deg)}100%{transform:rotateY(180deg)}}
+@keyframes book-page-fold-shade{0%,100%{opacity:.18}48%,56%{opacity:.72}}
 @keyframes book-overlay-out{0%,76%{opacity:1}to{opacity:0}}
 
 @media(max-width:760px){
-  .book-opening-scene{width:min(96vw,135vh)}
-  .book-open-copy-left,.book-open-copy-right{display:none}
+  .book-opening-scene{width:min(98vw,144vh)}
+  .book-page-content{padding-top:8%;padding-bottom:6%}
+  .book-page-content small{display:none}
+  .book-page-content blockquote{max-width:90%;line-height:1.7}
+  .book-page-control{width:38px;height:38px}
 }
 /* Four matched raster states create a continuous, physically legible opening motion. */
 .book-frame-stack{position:absolute;z-index:1;inset:0}
@@ -1703,9 +1730,6 @@ body{background:#edf1ed;color:#31493f}
 .phase-closing .frame-opening-86{animation:book-frame-86-close .25s .12s ease-in-out both}
 .phase-closing .frame-opening-62{animation:book-frame-62-close .26s .29s ease-in-out both}
 .phase-closing .frame-opening-30{animation:book-frame-30-close .25s .46s ease-in both}
-.book-open-copy-left{left:23%;top:18%;width:24%;transform:none}
-.book-open-copy-right{left:59%;top:18%;width:24%;transform:none}
-.book-open-copy-right p{margin-top:clamp(42px,7vh,80px)}
 
 /* Opening frames overlap opaquely: the outgoing frame is removed only after
    the incoming frame covers it, so the dark stage can never flash through. */
@@ -1720,8 +1744,8 @@ body{background:#edf1ed;color:#31493f}
 @keyframes book-origin-return-v2{0%,55%{left:21vw;top:12vh;width:58vw;height:76vh;opacity:0;transform:rotate(-2deg)}72%{opacity:.88}100%{left:var(--book-origin-left);top:var(--book-origin-top);width:var(--book-origin-width);height:var(--book-origin-height);opacity:1;transform:rotate(0)}}
 
 @media(prefers-reduced-motion:reduce){
-  .book-opening-overlay,.book-opening-atmosphere i,.book-origin-echo,.book-opening-scene,.book-opening-hint,.book-open-copy{animation:none!important;transition:none!important}
-  .book-origin-echo{display:none}.book-opening-scene{opacity:1;transform:translate(-50%,-50%);pointer-events:auto}.book-opening-close,.book-opening-hint,.book-open-copy{opacity:1;transform:none}
+  .book-opening-overlay,.book-opening-atmosphere i,.book-origin-echo,.book-opening-scene,.book-opening-hint,.book-page-system,.book-page-control,.book-page-pagination,.book-turn-leaf{animation:none!important;transition:none!important}
+  .book-origin-echo{display:none}.book-opening-scene{opacity:1;transform:translate(-50%,-50%);pointer-events:auto}.book-opening-close,.book-opening-hint,.book-page-system,.book-page-control,.book-page-pagination{opacity:1}
   .book-sequence-frame{animation:none!important;opacity:0;transform:none;filter:none}
   .frame-open-topdown{opacity:1}
 }
