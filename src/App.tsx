@@ -14,6 +14,7 @@ import { getSpiritSwordCount } from './spiritSwords';
 import GlobalClickEffect from './components/GlobalClickEffect';
 import BookOpeningOverlay, { type BookOrigin } from './components/BookOpeningOverlay';
 import { getPreference, setPreference } from './preferences';
+import { buildNoteTree, getFolderAncestorIds, type NoteTreeNode } from './noteTree';
 const emptyStats: Stats = { generated: 0, curated: 0, manual: 0, notes: 0, links: 0, minutes: 0, patches: 0, streak: 0, active_days: 0, activity: [], graph: [] };
 
 type ScrollbarMetrics = {
@@ -227,13 +228,14 @@ export default function App() {
     setNoteTreeExpanded(true);
     const selectedFolder = notes.find(note => note.id === selected)?.folder_id;
     if (!selectedFolder) return;
+    const folderPath = getFolderAncestorIds(folders, selectedFolder);
     setCollapsedNoteFolders(previous => {
-      if (!previous.has(selectedFolder)) return previous;
+      if (!folderPath.some(folderId => previous.has(folderId))) return previous;
       const next = new Set(previous);
-      next.delete(selectedFolder);
+      folderPath.forEach(folderId => next.delete(folderId));
       return next;
     });
-  }, [notes, selected]);
+  }, [folders, notes, selected]);
   const canLeave = () => !dirty || window.confirm('还有未保存的修改，确定离开吗？');
   const navigate = (next: typeof page) => { if (!canLeave()) return; setDirty(false); setGeneratingJob(null); setPage(next); setSelected(null); };
   const navigateToNotesHome = () => {
@@ -283,21 +285,23 @@ export default function App() {
   const ongoing = jobs.filter(j => ['queued', 'running'].includes(j.status));
   const dateLabel = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }).replace(/日(?=星期)/, '日 ');
   const normalizedWorkspaceQuery = workspaceQuery.trim().toLocaleLowerCase();
-  const rootNotes = notes.filter(note => !note.folder_id && note.title.toLocaleLowerCase().includes(normalizedWorkspaceQuery));
-  const noteFolderBranches = folders.map(folder => {
-    const folderNotes = notes.filter(note => note.folder_id === folder.id);
-    const folderMatches = folder.name.toLocaleLowerCase().includes(normalizedWorkspaceQuery);
-    const visibleNotes = normalizedWorkspaceQuery && !folderMatches
-      ? folderNotes.filter(note => note.title.toLocaleLowerCase().includes(normalizedWorkspaceQuery))
-      : folderNotes;
-    return { folder, folderNotes, visibleNotes };
-  }).filter(({ folder, visibleNotes }) => !normalizedWorkspaceQuery || folder.name.toLocaleLowerCase().includes(normalizedWorkspaceQuery) || visibleNotes.length > 0);
-  const hasWorkspaceResults = rootNotes.length > 0 || noteFolderBranches.length > 0;
+  const noteTree = buildNoteTree(folders, notes, normalizedWorkspaceQuery);
+  const hasWorkspaceResults = noteTree.rootNotes.length > 0 || noteTree.folders.length > 0;
   const toggleNoteFolder = (folderId: string) => setCollapsedNoteFolders(previous => {
     const next = new Set(previous);
     if (next.has(folderId)) next.delete(folderId); else next.add(folderId);
     return next;
   });
+  const renderNoteFolder = (node: NoteTreeNode) => {
+    const folderExpanded = normalizedWorkspaceQuery ? true : !collapsedNoteFolders.has(node.folder.id);
+    return <div className="note-switcher-branch" key={node.folder.id}>
+      <button className="note-switcher-folder note-switcher-tree-row" aria-expanded={folderExpanded} onClick={() => toggleNoteFolder(node.folder.id)} title={node.folder.path || node.folder.name}><ChevronRight size={12}/>{folderExpanded ? <FolderOpen size={14}/> : <FolderIcon size={14}/>}<span>{node.folder.name}</span><b>{node.folder.note_count}</b></button>
+      {folderExpanded && <div className="note-switcher-children">
+        {node.children.map(renderNoteFolder)}
+        {node.notes.map(note => <button key={note.id} className={`note-switcher-note ${note.id === selected ? 'active' : ''}`} onClick={() => openNote(note.id)} title={`${node.folder.path || node.folder.name} / ${note.title}`}><FileText size={13}/><span>{note.title}</span></button>)}
+      </div>}
+    </div>;
+  };
   const showingLibrary = page === 'notes' && !generatingJob && !selected;
   return <div className={`app-shell ${page === 'home' ? 'home-shell' : selected ? 'note-focus' : showingLibrary ? 'notes-library' : page === 'companion' ? `companion-shell ${companionSidebarCollapsed ? 'companion-sidebar-collapsed' : ''} ${companionWallpaperMode ? 'companion-wallpaper-mode' : ''}` : page === 'spirit' ? 'spirit-shell' : ''} ${bookOrigin ? 'book-focus' : ''}`} data-theme={theme}><GlobalClickEffect/><aside className="sidebar"><div className="window-space"/><button className="brand" onClick={() => navigate('home')}><Logo/><span>拾知<small>Glean</small></span></button><div className="sidebar-caption">在这里，知识慢慢生长</div><button className="new-note-button" onClick={() => setModal('txt')}><Plus size={18}/>拾取新知<span>⌘ N</span></button><nav><button className={page === 'home' ? 'active' : ''} onClick={() => navigate('home')}><Sprout size={19}/>拾知灵境<ChevronRight size={14}/></button><button className={page === 'notes' ? 'active' : ''} onClick={navigateToNotesHome}><BookOpen size={19}/>我的笔记<span className="nav-count">{notes.length.toString().padStart(2, '0')}</span></button><button className={page === 'companion' ? 'active companion-nav' : 'companion-nav'} onClick={() => navigate('companion')}><Heart size={19}/>红颜知音<ChevronRight size={14}/></button><button className={page === 'spirit' ? 'active spirit-nav' : 'spirit-nav'} onClick={() => navigate('spirit')}><Sparkles size={19}/>精神识海<span className="nav-count">{getSpiritSwordCount(notes.length).toString().padStart(2, '0')}</span></button></nav>
     <div className="sidebar-bottom"><div className="sidebar-quote"><Leaf size={21} strokeWidth={1.1}/><p>不必急着成为森林。<br/>今天，长出一片新叶就好。</p><span>一点一滴，皆有所获。</span></div><button className={`sidebar-settings ${page === 'settings' ? 'active' : ''}`} onClick={() => navigate('settings')}><Settings2 size={18}/>设置</button><button className="vault-indicator" title="选择本地笔记仓库" onClick={chooseRepository}><FolderOpen size={16}/><span>{settings?.repository_path ? '本地笔记仓库' : '选择本地笔记仓库'}<small>{settings?.repository_path ? settings.repository_path.split(/[\\/]/).filter(Boolean).pop() : '点击选择保存文件夹'}</small></span><ArrowUpRight size={15}/></button></div></aside>
@@ -320,14 +324,8 @@ export default function App() {
         <nav className="note-switcher-list" aria-label="笔记文件树">
           <button className="note-switcher-folder note-switcher-root" aria-expanded={normalizedWorkspaceQuery ? true : noteTreeExpanded} onClick={() => setNoteTreeExpanded(previous => !previous)}><ChevronRight size={13}/>{normalizedWorkspaceQuery || noteTreeExpanded ? <FolderOpen size={14}/> : <FolderIcon size={14}/>}<span>全部笔记</span><b>{notes.length}</b></button>
           {(normalizedWorkspaceQuery || noteTreeExpanded) && <div className="note-switcher-tree">
-            {noteFolderBranches.map(({ folder, folderNotes, visibleNotes }) => {
-              const folderExpanded = normalizedWorkspaceQuery ? true : !collapsedNoteFolders.has(folder.id);
-              return <div className="note-switcher-branch" key={folder.id}>
-                <button className="note-switcher-folder note-switcher-tree-row" aria-expanded={folderExpanded} onClick={() => toggleNoteFolder(folder.id)} title={folder.name}><ChevronRight size={12}/>{folderExpanded ? <FolderOpen size={14}/> : <FolderIcon size={14}/>}<span>{folder.name}</span><b>{folderNotes.length}</b></button>
-                {folderExpanded && <div className="note-switcher-children">{visibleNotes.map(note => <button key={note.id} className={`note-switcher-note ${note.id === selected ? 'active' : ''}`} onClick={() => openNote(note.id)} title={`${folder.name} / ${note.title}`}><FileText size={13}/><span>{note.title}</span></button>)}</div>}
-              </div>;
-            })}
-            {rootNotes.map(note => <button key={note.id} className={`note-switcher-note note-switcher-root-note ${note.id === selected ? 'active' : ''}`} onClick={() => openNote(note.id)} title={note.title}><FileText size={13}/><span>{note.title}</span></button>)}
+            {noteTree.folders.map(renderNoteFolder)}
+            {noteTree.rootNotes.map(note => <button key={note.id} className={`note-switcher-note note-switcher-root-note ${note.id === selected ? 'active' : ''}`} onClick={() => openNote(note.id)} title={note.title}><FileText size={13}/><span>{note.title}</span></button>)}
             {!hasWorkspaceResults && <p className="note-switcher-empty">没有匹配的笔记</p>}
           </div>}
         </nav>
