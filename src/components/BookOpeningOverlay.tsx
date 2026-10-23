@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { BookOpen, Check, ChevronLeft, ChevronRight, FileText, LoaderCircle, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowUpRight, BookOpen, Check, ChevronLeft, ChevronRight, FileText, LoaderCircle, Sparkles, Trash2, X } from 'lucide-react';
 import { api, post, streamJsonLines, type BookEntry, type Note } from '../api';
 import { groupBookEntriesByPage } from '../bookPagination';
 import scroll from '../assets/spirit-scroll.png';
@@ -68,7 +68,7 @@ function summaryDensityClass(content: string) {
   return length > 480 ? 'is-very-long' : length > 300 ? 'is-long' : 'is-regular';
 }
 
-function BookPageContent({ page, side, onDelete, deletingEntryId }: { page: BookPage; side: PageSide; onDelete?: (entry: BookEntry) => void; deletingEntryId?: string }) {
+function BookPageContent({ page, side, onOpenNote, onDelete, deletingEntryId }: { page: BookPage; side: PageSide; onOpenNote?: (noteId: string) => void; onDelete?: (entry: BookEntry) => void; deletingEntryId?: string }) {
   const entry = page.entries?.[0];
   return <article className={`book-page-content book-page-${side}${page.empty ? ' book-page-empty' : ''}${page.entries ? ' book-page-with-entries' : ''}`}>
     <small>{page.eyebrow}</small><h2>{page.title}</h2>
@@ -77,11 +77,18 @@ function BookPageContent({ page, side, onDelete, deletingEntryId }: { page: Book
         <p>{entry.content}</p>
       </section>)}
     </div> : <blockquote>{page.quote}</blockquote>}
-    <footer><div className="book-page-footer-meta"><span>{page.author}</span>{entry && onDelete && <button className="book-entry-delete" type="button" disabled={Boolean(deletingEntryId)} onPointerDown={event => event.stopPropagation()} onPointerUp={event => event.stopPropagation()} onClick={() => onDelete(entry)} aria-label={`删除《${entry.note_title}》的摘要`} title="从书本中删除摘要">{deletingEntryId === entry.id ? <LoaderCircle className="spin" size={11}/> : <Trash2 size={11}/>}<span>删除</span></button>}</div><b>{page.pageNumber}</b></footer>
+    <footer>
+      <span className="book-page-author">{page.author}</span>
+      {entry && (onOpenNote || onDelete) && <div className="book-entry-actions">
+        {onOpenNote && <button className="book-entry-open" type="button" disabled={Boolean(deletingEntryId)} onPointerDown={event => event.stopPropagation()} onPointerUp={event => event.stopPropagation()} onClick={() => onOpenNote(entry.note_id)} aria-label={`查看原笔记《${entry.note_title}》`} title="进入原始笔记详情页"><ArrowUpRight size={12}/><span>查看原笔记</span></button>}
+        {onDelete && <button className="book-entry-delete" type="button" disabled={Boolean(deletingEntryId)} onPointerDown={event => event.stopPropagation()} onPointerUp={event => event.stopPropagation()} onClick={() => onDelete(entry)} aria-label={`从书本中移除《${entry.note_title}》的摘要`} title="从书本中移除摘要（原笔记会保留）">{deletingEntryId === entry.id ? <LoaderCircle className="spin" size={12}/> : <Trash2 size={12}/>}<span>{deletingEntryId === entry.id ? '正在移除' : '移除摘要'}</span></button>}
+      </div>}
+      <b>{page.pageNumber}</b>
+    </footer>
   </article>;
 }
 
-export default function BookOpeningOverlay({ origin, notes, onClose }: { origin: BookOrigin; notes: Note[]; onClose: () => void }) {
+export default function BookOpeningOverlay({ origin, notes, suspended = false, onClose, onOpenNote }: { origin: BookOrigin; notes: Note[]; suspended?: boolean; onClose: () => void; onOpenNote: (id: string) => void }) {
   const [phase, setPhase] = useState<BookPhase>(() => prefersReducedMotion() ? 'opened' : 'opening');
   const [entries, setEntries] = useState<BookEntry[]>([]);
   const [entriesLoaded, setEntriesLoaded] = useState(false);
@@ -142,17 +149,23 @@ export default function BookOpeningOverlay({ origin, notes, onClose }: { origin:
   }, [bookSpreads.length, composerOpen, deletingEntryId, phase, spreadIndex, turning]);
 
   useEffect(() => {
+    if (suspended) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    if (phase === 'opened') {
+      requestAnimationFrame(() => closeButton.current?.focus());
+      return () => { document.body.style.overflow = previousOverflow; };
+    }
     if (prefersReducedMotion()) {
       requestAnimationFrame(() => closeButton.current?.focus());
       return () => { document.body.style.overflow = previousOverflow; };
     }
     const settleTimer = window.setTimeout(() => { setPhase('opened'); requestAnimationFrame(() => closeButton.current?.focus()); }, 820);
     return () => { window.clearTimeout(settleTimer); window.clearTimeout(closeTimer.current); window.clearTimeout(turnTimer.current); document.body.style.overflow = previousOverflow; };
-  }, []);
+  }, [suspended]);
 
   useEffect(() => {
+    if (suspended) return;
     const useKeys = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !closing) {
         event.preventDefault();
@@ -162,7 +175,7 @@ export default function BookOpeningOverlay({ origin, notes, onClose }: { origin:
     };
     window.addEventListener('keydown', useKeys);
     return () => window.removeEventListener('keydown', useKeys);
-  }, [busy, close, closing, composerOpen, turnPage]);
+  }, [busy, close, closing, composerOpen, suspended, turnPage]);
 
   const beginSwipe = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button === 0 && phase === 'opened' && !composerOpen) swipeOrigin.current = event.clientX;
@@ -225,6 +238,8 @@ export default function BookOpeningOverlay({ origin, notes, onClose }: { origin:
     }
   };
 
+  if (suspended) return null;
+
   const originStyle = {
     '--book-origin-left': `${origin.left}px`, '--book-origin-top': `${origin.top}px`, '--book-origin-width': `${origin.width}px`, '--book-origin-height': `${origin.height}px`, '--book-paper-texture': `url("${paperTexture}")`,
   } as CSSProperties;
@@ -253,8 +268,8 @@ export default function BookOpeningOverlay({ origin, notes, onClose }: { origin:
             <img className="book-sequence-frame frame-open-topdown" src={openTopdown} alt="" draggable="false"/>
           </div>
           <div className="book-page-system" aria-live="polite">
-            <div className="book-page-static book-page-static-left"><BookPageContent page={baseLeft} side="left" onDelete={turning ? undefined : deleteEntry} deletingEntryId={deletingEntryId}/></div>
-            <div className="book-page-static book-page-static-right"><BookPageContent page={baseRight} side="right" onDelete={turning ? undefined : deleteEntry} deletingEntryId={deletingEntryId}/></div>
+            <div className="book-page-static book-page-static-left"><BookPageContent page={baseLeft} side="left" onOpenNote={turning ? undefined : onOpenNote} onDelete={turning ? undefined : deleteEntry} deletingEntryId={deletingEntryId}/></div>
+            <div className="book-page-static book-page-static-right"><BookPageContent page={baseRight} side="right" onOpenNote={turning ? undefined : onOpenNote} onDelete={turning ? undefined : deleteEntry} deletingEntryId={deletingEntryId}/></div>
             {turning && <div className={`book-turn-leaf book-turn-${turning}`} aria-hidden="true">
               <div className="book-page-face book-page-face-front"><BookPageContent page={flipFront} side={turning === 'next' ? 'right' : 'left'}/></div>
               <div className="book-page-face book-page-face-back"><BookPageContent page={flipBack} side={turning === 'next' ? 'left' : 'right'}/></div>

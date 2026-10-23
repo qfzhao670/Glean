@@ -35,9 +35,10 @@ function replaceDocumentBody(content: string, body: string) {
   return `${prefix.trimEnd()}\n\n${body.trim()}${body.trim() ? '\n' : ''}`;
 }
 
-export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onBack, onUpdated, onJobCreated, notify, onLink }: {
+export default function NoteDetail({ id, initialEdit = false, backLabel = '所有笔记', onDirtyChange, onBack, onUpdated, onJobCreated, notify, onLink }: {
   id: string;
   initialEdit?: boolean;
+  backLabel?: string;
   onDirtyChange: (dirty: boolean) => void;
   onBack: () => void;
   onUpdated: () => void;
@@ -318,7 +319,7 @@ export default function NoteDetail({ id, initialEdit = false, onDirtyChange, onB
 
   return <div className="note-detail page-enter">
     <div className="note-toolbar">
-      <button className="button text-button" onClick={onBack}><ArrowLeft size={17}/>所有笔记</button>
+      <button className="button text-button" onClick={onBack}><ArrowLeft size={17}/>{backLabel}</button>
       <div>
         <button className="icon-button" title="版本历史" aria-label="版本历史" onClick={() => setHistory(!history)}><History size={18}/></button>
         <button className="icon-button" title="导出 Markdown" aria-label="导出 Markdown" disabled={!note} onClick={() => note && download(note.title, currentDraft())}><Download size={18}/></button>

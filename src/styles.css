@@ -1694,11 +1694,15 @@ body{background:#edf1ed;color:#31493f}
 .book-page-content:not(.book-page-empty) h2{max-width:96%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:clamp(18px,1.3vw,24px);letter-spacing:clamp(.5px,.08vw,1.4px)}
 .book-page-content footer{width:78%;display:flex;align-items:center;justify-content:space-between;padding-top:clamp(10px,1.5vh,18px);border-top:1px solid rgba(72,98,82,.17);font:clamp(9px,.68vw,12px) var(--serif);letter-spacing:.6px;color:#708278}
 .book-page-content footer b{font:500 clamp(11px,.82vw,14px) Georgia,serif;color:#7d8d83}
-.book-page-footer-meta{display:flex;min-width:0;align-items:center;gap:clamp(6px,.7vw,11px)}
-.book-entry-delete{display:flex;align-items:center;gap:4px;padding:4px 6px;border-radius:2px;color:#7b8980;font:clamp(8px,.56vw,10px)/1 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;letter-spacing:0;opacity:.72;transition:color .16s,background .16s,opacity .16s}
-.book-entry-delete:hover:not(:disabled){color:#94594a;background:rgba(148,89,74,.07);opacity:1}
-.book-entry-delete:focus-visible{outline:1px solid #94594a;outline-offset:2px;color:#874b40;opacity:1}
-.book-entry-delete:disabled{cursor:wait;opacity:.4}
+.book-page-author{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.book-entry-actions{display:flex;align-items:center;justify-content:flex-end;gap:clamp(5px,.55vw,9px);margin-left:auto;margin-right:clamp(5px,.7vw,10px)}
+.book-entry-actions button{min-height:28px;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:6px clamp(7px,.65vw,10px);border:1px solid transparent;border-radius:4px;font:600 clamp(8px,.58vw,10px)/1 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;letter-spacing:0;white-space:nowrap;text-shadow:none;transition:color .16s,background .16s,border-color .16s}
+.book-entry-open{color:#456656;background:rgba(255,255,249,.34);border-color:rgba(69,102,86,.32)!important}
+.book-entry-open:hover:not(:disabled){color:#294b3b;background:rgba(69,102,86,.1);border-color:rgba(69,102,86,.5)!important}
+.book-entry-delete{color:#81493e;background:rgba(148,89,74,.09);border-color:rgba(148,89,74,.38)!important}
+.book-entry-delete:hover:not(:disabled){color:#6f382f;background:rgba(148,89,74,.16);border-color:rgba(126,73,62,.6)!important}
+.book-entry-actions button:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.book-entry-actions button:disabled{cursor:wait;opacity:.48}
 .book-page-with-entries{align-items:stretch;padding-top:6%;padding-bottom:5%;text-align:left}
 .book-page-with-entries>small{padding-left:1px;letter-spacing:1px}
 .book-page-with-entries>h2{max-width:100%!important;margin-top:clamp(7px,1vh,13px)!important;text-align:left}
@@ -1806,7 +1810,9 @@ body{background:#edf1ed;color:#31493f}
   .book-page-content small{display:none}
   .book-page-content blockquote{max-width:90%;line-height:1.7}
   .book-page-with-entries{padding-top:6%;padding-bottom:5%}
-  .book-entry-delete>span{display:none}
+  .book-entry-actions{gap:4px;margin-right:5px}
+  .book-entry-actions button{min-height:24px;padding:5px 6px}
+  .book-entry-actions button>span{display:none}
   .book-page-control{width:38px;height:38px}
   .book-page-control-previous{left:12%}.book-page-control-next{right:4%}
   .book-extract-panel{left:17.5%;right:8.5%}
