@@ -308,6 +308,12 @@ def list_book_entries():
     return rows('SELECT id,note_id,note_title,content,created_at FROM book_entries ORDER BY created_at,rowid')
 
 
+def delete_book_entry(entry_id):
+    with db() as c:
+        result = c.execute('DELETE FROM book_entries WHERE id=?', (entry_id,))
+        return result.rowcount > 0
+
+
 def create_folder(name, parent_id=None):
     folder_id, timestamp = uid(), now()
     with db() as c:

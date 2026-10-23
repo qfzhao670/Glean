@@ -217,21 +217,15 @@ class BookSuggestionInput(BaseModel):
 
 
 class BookEntryInput(BookSuggestionInput):
-    contents: list[str] = Field(min_length=1, max_length=10)
+    content: str = Field(min_length=1, max_length=600)
 
-    @field_validator('contents')
+    @field_validator('content')
     @classmethod
-    def valid_contents(cls, values):
-        result = []
-        for value in values:
-            value = value.strip()
-            if not value or len(value) > 600:
-                raise ValueError('每条知识段落须为 1–600 个字符。')
-            if value not in result:
-                result.append(value)
-        if not result:
-            raise ValueError('请至少选择一条知识段落。')
-        return result
+    def valid_content(cls, value):
+        value = re.sub(r'\s+', ' ', value).strip()
+        if not value:
+            raise ValueError('摘要不能为空。')
+        return value
 
 
 class FolderInput(BaseModel):
@@ -371,10 +365,47 @@ def book_suggestions(value: BookSuggestionInput):
             'suggestions': ai.extract_high_density_knowledge(selected['content'], selected['title'])}
 
 
+@app.post('/api/book/summary/stream')
+def stream_book_summary(value: BookSuggestionInput):
+    selected = get_note(value.note_id)
+    if not selected['content'].strip():
+        raise ValueError('这篇笔记还没有可提炼的内容。')
+    config = store.settings(True)
+
+    def event(kind, **values):
+        return json.dumps({'type': kind, **values}, ensure_ascii=False) + '\n'
+
+    def generate():
+        parts = []
+        try:
+            yield event('status', message='正在通读整篇笔记并组织摘要…')
+            for delta in ai.stream_book_summary(selected['content'], selected['title'], config):
+                parts.append(delta)
+                yield event('delta', content=delta)
+            summary = ai._clean_book_summary(''.join(parts))
+            yield event('done', summary=summary)
+        except ValueError as exc:
+            yield event('error', message=str(exc))
+        except Exception:
+            yield event('error', message='摘要生成未完成，请重试。')
+
+    return StreamingResponse(generate(), media_type='application/x-ndjson', headers={
+        'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+    })
+
+
 @app.post('/api/book/entries')
 def save_book_entries(value: BookEntryInput):
     selected = get_note(value.note_id)
-    return {'entries': store.create_book_entries(selected['id'], selected['title'], value.contents)}
+    entries = store.create_book_entries(selected['id'], selected['title'], [value.content])
+    return {'entry': entries[0]}
+
+
+@app.delete('/api/book/entries/{entry_id}')
+def delete_book_entry(entry_id: str):
+    if not store.delete_book_entry(entry_id):
+        raise HTTPException(404, '摘要不存在')
+    return {'ok': True}
 
 
 @app.get('/api/folders')
