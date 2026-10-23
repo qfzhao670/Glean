@@ -63,14 +63,18 @@ function prefersReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+function summaryDensityClass(content: string) {
+  const length = content.replace(/\s+/g, '').length;
+  return length > 480 ? 'is-very-long' : length > 300 ? 'is-long' : 'is-regular';
+}
+
 function BookPageContent({ page, side, onDelete, deletingEntryId }: { page: BookPage; side: PageSide; onDelete?: (entry: BookEntry) => void; deletingEntryId?: string }) {
   const entry = page.entries?.[0];
   return <article className={`book-page-content book-page-${side}${page.empty ? ' book-page-empty' : ''}${page.entries ? ' book-page-with-entries' : ''}`}>
     <small>{page.eyebrow}</small><h2>{page.title}</h2>
     {page.entries ? <div className={`book-knowledge-list count-${page.entries.length}`}>
-      {page.entries.map(entry => <section className={entry.content.length > 240 ? 'is-long' : ''} key={entry.id}>
+      {page.entries.map(entry => <section className={summaryDensityClass(entry.content)} key={entry.id}>
         <p>{entry.content}</p>
-        <div><span>摘自《{entry.note_title}》</span><time dateTime={entry.created_at}>{formatDate(entry.created_at)}</time></div>
       </section>)}
     </div> : <blockquote>{page.quote}</blockquote>}
     <footer><div className="book-page-footer-meta"><span>{page.author}</span>{entry && onDelete && <button className="book-entry-delete" type="button" disabled={Boolean(deletingEntryId)} onPointerDown={event => event.stopPropagation()} onPointerUp={event => event.stopPropagation()} onClick={() => onDelete(entry)} aria-label={`删除《${entry.note_title}》的摘要`} title="从书本中删除摘要">{deletingEntryId === entry.id ? <LoaderCircle className="spin" size={11}/> : <Trash2 size={11}/>}<span>删除</span></button>}</div><b>{page.pageNumber}</b></footer>
