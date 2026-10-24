@@ -7,7 +7,7 @@ import Garden from './Garden';
 import type { BookOrigin } from './BookOpeningOverlay';
 
 const quotes = [
-  ['人外有人，天外有天，修行之路，贵在坚持。', '韩立'],
+  ['人外有人，天外有天，修行之路，贵在坚持。', '拾知'],
   ['不积跬步，无以至千里。', '荀子'],
   ['知之者不如好之者，好之者不如乐之者。', '论语'],
   ['博学之，审问之，慎思之，明辨之，笃行之。', '中庸'],
@@ -122,7 +122,7 @@ export default function HomeDashboard({ stats, notes, dateLabel, playIntro, onIn
         <div className="hero-footnote"><span className="thin-line"/>每一份积累，都是向上的力量。</div>
       </div>
       <Garden stats={stats} onOpenBook={onOpenBook}/>
-      <aside className="hero-verse"><strong>道阻且长，<br/>行则将至。</strong><span>——《凡人修仙传》</span></aside>
+      <aside className="hero-verse"><strong>道阻且长，<br/>行则将至。</strong><span>——《拾知手记》</span></aside>
     </section>
 
     <section className="cultivation-grid">
